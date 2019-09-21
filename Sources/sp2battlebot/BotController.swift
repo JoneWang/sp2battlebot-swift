@@ -72,11 +72,6 @@ class BotController {
     func start(context: Context) -> Bool {
         guard let chatId = context.chatId else { return false }
 
-        // TODO: 可以设置只能某个用户的 ID 才能触发此命令
-        // if context.fromId != [] {
-        //     return false
-        // }
-
         guard !started(in: chatId) else {
             context.respondAsync("@\(bot.username) already started.")
             return true
@@ -101,10 +96,6 @@ class BotController {
 
     func stop(context: Context) -> Bool {
         guard let chatId = context.chatId else { return false }
-
-        if context.fromId != 306421802 {
-            return false
-        }
 
         guard started(in: chatId) else {
             context.respondAsync("@\(bot.username) already stopped.")
