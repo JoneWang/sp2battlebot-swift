@@ -28,7 +28,7 @@ struct TGSP2MessageMemberRow: TGSP2MessageRow {
 
     var text: String {
         let formatLine = "*▸*`%2d(%d)k %2dd %dsp %@`"
-        return String(format: formatLine, kill, assist, death, special, nickname)
+        return String(format: formatLine, kill + assist, assist, death, special, nickname)
     }
 }
 
