@@ -191,7 +191,6 @@ extension BotController {
                     case .success(let response):
                         let lastBattle = response.battles[battleIndex]
 
-                        print("battle id: \(lastBattle.battleId)")
                         if block == nil || (!self.firstGet &&
                                 self.lastBattleId != "" &&
                                 lastBattle.battleId != self.lastBattleId) {
