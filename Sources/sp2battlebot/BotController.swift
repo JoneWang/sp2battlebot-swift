@@ -187,7 +187,7 @@ class BotController {
         }
 
         if let chatId = context.chatId,
-           let messageId = self.startedMessageId(in: chatId) {
+           let messageId = self.startedMessageId(in: chatId), requestLoop {
             startedInChat[context.chatId!] = nil
             bot.deleteMessageSync(chatId: context.chatId!, messageId: messageId)
         }
@@ -195,7 +195,7 @@ class BotController {
         print(sp2Message.text)
         context.respondAsync(sp2Message.text, parseMode: "Markdown") { result, error in
             print("send completed")
-            if let chatId = result?.chat.id, error == nil {
+            if let chatId = result?.chat.id, error == nil, requestLoop {
                 self.startedInChat[chatId] = result?.messageId
             }
         }
