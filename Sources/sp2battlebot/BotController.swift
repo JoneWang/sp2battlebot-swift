@@ -170,9 +170,9 @@ class BotController {
         }
 
         if battle.type == .regular {
-            sp2Message.append(content: String(format: "我方 \(battle.type)(%.1f)：", battle.myTeamPercentage!))
+            sp2Message.append(content: String(format: "我方 \(battle.type) (%.1f)：", battle.myTeamPercentage!))
             sp2Message.append(rowsOf: generateMessageRows(myTeamResults))
-            sp2Message.append(content: String(format: "对方 \(battle.type)(%.1f)：", battle.otherTeamPercentage!))
+            sp2Message.append(content: String(format: "对方 \(battle.type) (%.1f)：", battle.otherTeamPercentage!))
             sp2Message.append(rowsOf: generateMessageRows(otherTeamResults))
         } else if battle.type == .ranked {
             sp2Message.append(content: "我方：")
@@ -180,9 +180,9 @@ class BotController {
             sp2Message.append(content: "对方：")
             sp2Message.append(rowsOf: generateMessageRows(otherTeamResults))
         } else if battle.type == .league {
-            sp2Message.append(content: String(format: "我方 \(battle.type)(%d)：", battle.myEstimateLeaguePoint!))
+            sp2Message.append(content: String(format: "我方 \(battle.type) (%d)：", battle.myEstimateLeaguePoint!))
             sp2Message.append(rowsOf: generateMessageRows(myTeamResults))
-            sp2Message.append(content: String(format: "对方 \(battle.type)(%d)：", battle.otherEstimateLeaguePoint!))
+            sp2Message.append(content: String(format: "对方 \(battle.type) (%d)：", battle.otherEstimateLeaguePoint!))
             sp2Message.append(rowsOf: generateMessageRows(otherTeamResults))
         }
 
