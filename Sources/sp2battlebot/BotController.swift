@@ -41,6 +41,9 @@ class BotController {
     var firstGet = true
     // 用于比较 battleNumber，如果和上次不同则认为产生了新的 battle 数据并且发送到 tg
     var lastBattleId = ""
+    
+    var gameCount = 0
+    var gameVictoryCount = 0
 
     func started(in chatId: Int64) -> Bool {
         return startedInChat[chatId] != nil
@@ -115,7 +118,7 @@ class BotController {
     }
 
     private func startLastBattleRequestLoop(_ context: Context) {
-        requestLastBattle(context) { _ in
+        requestLastBattle(context, requestLoop: true) { _ in
             if self.loop {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                     self.startLastBattleRequestLoop(context)
@@ -124,7 +127,9 @@ class BotController {
         }
     }
 
-    private func sendBattleToTG(_ context: Context, battle: SP2Battle) {
+    private func sendBattleToTG(_ context: Context,
+                                battle: SP2Battle,
+                                requestLoop: Bool) {
         var myTeamResults = battle.myTeamPlayerResults!
         // 将自己的结果添加到成员中
         myTeamResults.append(battle.selfPlayerResult)
@@ -132,11 +137,26 @@ class BotController {
         let otherTeamResults = battle.otherTeamPlayerResults!
 
         let sp2Message = TGSP2Message()
-
-        if battle.victory {
-            sp2Message.append(content: "我们赢啦！")
-        } else {
-            sp2Message.append(content: "呜呜呜~输了不好意思见人了~")
+        
+        if requestLoop {
+            if battle.victory {
+                sp2Message.append(content: "我们赢啦！")
+            } else {
+                sp2Message.append(content: "呜呜呜~输了不好意思见人了~")
+            }
+        
+            sp2Message.append(content:
+                String(format: "`当前胜率-%.0f%% 胜-%d 负-%d`",
+                       Double(gameVictoryCount) / Double(gameCount) * 100,
+                       gameVictoryCount,
+                       gameCount - gameVictoryCount)
+            )
+        }
+        else {
+            sp2Message.append(content:
+                String(format: "当前查询的战斗 %@ ID%d",
+                       battle.victory ? "VICTORY" : "DEFEAT",
+                       battle.battleId))
         }
 
         let generateMessageRows: ([SP2BattlePlayerResult]) -> [TGSP2MessageMemberRow] = { results in
@@ -183,7 +203,10 @@ class BotController {
 }
 
 extension BotController {
-    private func requestLastBattle(_ context: Context, battleIndex: Int = 0, block: ((Context) -> Void)?) {
+    private func requestLastBattle(_ context: Context,
+                                   battleIndex: Int = 0,
+                                   requestLoop: Bool = false,
+                                   block: ((Context) -> Void)?) {
         provider.rx.request(.battleList)
                 .map(SP2BattleList.self)
                 .subscribe { [unowned self] event in
@@ -194,7 +217,9 @@ extension BotController {
                         if block == nil || (!self.firstGet &&
                                 self.lastBattleId != "" &&
                                 lastBattle.battleId != self.lastBattleId) {
-                            self.requestBattleDetail(context, battleId: lastBattle.battleId)
+                            self.requestBattleDetail(context,
+                                                     battleId: lastBattle.battleId,
+                                                     requestLoop: requestLoop)
                         } else {
                             self.firstGet = false
                         }
@@ -214,13 +239,21 @@ extension BotController {
                 .disposed(by: bag)
     }
 
-    private func requestBattleDetail(_ context: Context, battleId: String) {
+    private func requestBattleDetail(_ context: Context,
+                                     battleId: String,
+                                     requestLoop: Bool) {
         provider.rx.request(.battleDetail(id: battleId))
                 .map(SP2Battle.self)
                 .subscribe { [unowned self] event in
                     switch event {
                     case .success(let battle):
-                        self.sendBattleToTG(context, battle: battle)
+                        if requestLoop {
+                            self.gameCount += 1
+                            self.gameVictoryCount += 1
+                        }
+                        self.sendBattleToTG(context,
+                                            battle: battle,
+                                            requestLoop: requestLoop)
                     case .error(let error):
                         print("\(error)")
                     }
