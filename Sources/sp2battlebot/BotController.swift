@@ -140,6 +140,7 @@ class BotController {
         
         if requestLoop {
             if battle.victory {
+                self.gameVictoryCount += 1
                 sp2Message.append(content: "我们赢啦！")
             } else {
                 sp2Message.append(content: "呜呜呜~输了不好意思见人了~")
@@ -249,7 +250,6 @@ extension BotController {
                     case .success(let battle):
                         if requestLoop {
                             self.gameCount += 1
-                            self.gameVictoryCount += 1
                         }
                         self.sendBattleToTG(context,
                                             battle: battle,
