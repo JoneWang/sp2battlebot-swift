@@ -115,6 +115,11 @@ class BotController {
         }
 
         let index = Int(String(messageText.split(separator: " ")[1]))!
+        if index > 49 {
+            sendLastCommandErrorMessage(update)
+            return
+        }
+        
         requestLastBattle(update, battleIndex: index, block: nil)
     }
 
