@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct SP2BattleList: Codable {
+struct SP2BattleList: Decodable {
     var battles: [SP2Battle]
 
     enum CodingKeys: String, CodingKey {
@@ -15,7 +15,7 @@ struct SP2BattleList: Codable {
     }
 }
 
-struct SP2Battle: Codable {
+struct SP2Battle: Decodable {
 
     enum BattleType: String, Codable {
         case league
@@ -76,7 +76,7 @@ struct SP2Battle: Codable {
     }
 }
 
-struct SP2BattlePlayerResult: Codable {
+struct SP2BattlePlayerResult: Decodable {
     var killCount: Int
     var assistCount: Int
     var deathCount: Int
@@ -92,6 +92,6 @@ struct SP2BattlePlayerResult: Codable {
     }
 }
 
-struct SP2Player: Codable {
+struct SP2Player: Decodable {
     var nickname: String
 }
