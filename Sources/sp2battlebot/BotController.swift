@@ -108,8 +108,7 @@ class BotController {
             return
         }
 
-        let lastPredicate = NSPredicate(format: "SELF MATCHES %@",
-                                        "^/last (0?[0-4]{1,2}|1[0-9]|49)$")
+        let lastPredicate = NSPredicate(format: "SELF MATCHES '^/last (0?[0-9]{1,2}|1[0-9]|49)$'")
         if !lastPredicate.evaluate(with: messageText) {
             sendLastCommandErrorMessage(update)
             return
@@ -126,7 +125,7 @@ class BotController {
         let params = Bot.SendMessageParams(chatId: .chat(chatId),
                                            text: "@\(botUser.username!) stopped. To restart, type /start")
         _ = try bot.sendMessage(params: params)
-        
+
         // TODO: Set cookie
     }
 
@@ -163,15 +162,15 @@ class BotController {
             }
 
             battleMessage.append(content:
-                String(format: "`当前胜率-%.0f%% 胜-%d 负-%d`",
-                       Double(gameVictoryCount) / Double(gameCount) * 100,
-                       gameVictoryCount,
-                       gameCount - gameVictoryCount))
+                                 String(format: "`当前胜率-%.0f%% 胜-%d 负-%d`",
+                                        Double(gameVictoryCount) / Double(gameCount) * 100,
+                                        gameVictoryCount,
+                                        gameCount - gameVictoryCount))
         } else {
+            let result = battle.victory ? "VICTORY" : "DEFEAT"
             battleMessage.append(content:
-                String(format: "当前查询的战斗 %@ ID%d",
-                       battle.victory ? "VICTORY" : "DEFEAT",
-                       battle.battleId))
+                                 String(format: "当前查询的战斗 \(result) ID%d",
+                                        battle.battleId))
         }
 
         let generateMessageRows: ([SP2BattlePlayerResult]) -> [TGSP2MessageMemberRow] = { results in
@@ -242,7 +241,7 @@ class BotController {
                                            text: "Cookie invalid.\nTo reset, type /setcookie .",
                                            parseMode: .markdown)
         _ = try! bot.sendMessage(params: params)
-        
+
         if loop { try! stop(update, nil) }
     }
 
@@ -267,7 +266,7 @@ extension BotController {
                 let lastBattle = battles[battleIndex]
 
                 if block == nil || (
-                    !self.firstGet &&
+                        !self.firstGet &&
                         self.lastBattleId != "" &&
                         lastBattle.battleId != self.lastBattleId) {
                     self.requestBattleDetail(update,

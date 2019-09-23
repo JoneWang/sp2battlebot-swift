@@ -27,14 +27,13 @@ struct TGSP2MessageMemberRow: TGSP2MessageRow {
     var nickname: String
 
     var text: String {
-        let formatLine = "*▸*`%2d(%d)k` `%2dd %dsp` `%@`"
+        let formatLine = "*▸*`%2d(%d)k` `%2dd %dsp` `\(String(nickname.prefix(9)))`"
+
         return String(format: formatLine,
                       kill + assist,
                       assist,
                       death,
-                      special,
-                      String(nickname.prefix(9))
-        )
+                      special)
     }
 }
 
