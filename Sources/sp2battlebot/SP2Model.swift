@@ -37,8 +37,8 @@ struct SP2Battle: Codable {
     var otherTeamCount: Int?
 
     enum CodingKeys: String, CodingKey {
-        case victory = "my_team_result"
         case type
+        case myTeamResult = "my_team_result"
         case battleId = "battle_number"
         case myTeamPlayerResults = "my_team_members"
         case otherTeamPlayerResults = "other_team_members"
@@ -51,14 +51,18 @@ struct SP2Battle: Codable {
         case otherTeamCount = "other_team_count"
     }
 
+    enum MyTeamResultCodingKeys: String, CodingKey {
+        case key
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         battleId = try container.decode(String.self, forKey: .battleId)
         let typeString = try container.decode(String.self, forKey: .type)
         type = BattleType(rawValue: typeString)!
 
-        let myTeamResult = try container.decode([String: String].self, forKey: .victory)
-        victory = myTeamResult["key"] == "victory"
+        let myTeamResultContainer = try container.nestedContainer(keyedBy: MyTeamResultCodingKeys.self, forKey: .myTeamResult)
+        victory = try myTeamResultContainer.decode(String.self, forKey: .key) == "victory"
 
         myTeamPlayerResults = try container.decodeIfPresent([SP2BattlePlayerResult].self, forKey: .myTeamPlayerResults)
         otherTeamPlayerResults = try container.decodeIfPresent([SP2BattlePlayerResult].self, forKey: .otherTeamPlayerResults)
