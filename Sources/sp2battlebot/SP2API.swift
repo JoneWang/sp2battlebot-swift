@@ -6,43 +6,54 @@
 //
 
 import Foundation
-import Moya
 
-enum SP2API {
-    case battleList
-    case battleDetail(id: String)
-}
+struct SP2API2 {
+    static let baseURL = URL(string: "https://app.splatoon2.nintendo.net")!
+    
+    static func getRequest<T: Decodable>(_ type: T.Type, path: String, _ result: @escaping (T?, Int?, Error?) -> Void) {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "GET"
+        
+        let sessionConfiguration = URLSessionConfiguration.default
+        sessionConfiguration.httpAdditionalHeaders = [
+            "Cookie": "iksm_session=\(BotController.shared.onlineSession); path=/; domain=.app.splatoon2.nintendo.net;",
+            "Accept": "application/json"
+        ]
+        
+        let session = URLSession(configuration: sessionConfiguration)
 
-extension SP2API: TargetType {
-    var baseURL: URL {
-        return URL(string: "https://app.splatoon2.nintendo.net")!
+        session.dataTask(with: request) { data, response, err in
+            var obj: T?
+            if let data = data {
+                obj = try? JSONDecoder().decode(T.self, from: data) as T
+            }
+            
+            let httpResponse = response as? HTTPURLResponse
+            result(obj, httpResponse?.statusCode, err)
+        }.resume()
     }
     
-    var path: String {
-        switch self {
-        case .battleList:
-            return "/api/results"
-        case .battleDetail(let id):
-            return "/api/results/\(id)"
+    static func battleList(result: @escaping ([SP2Battle], Int) -> Void) {
+        getRequest(SP2BattleList.self, path: "/api/results") {
+            obj, statusCode, err in
+            if err == nil {
+                result(obj?.battles ?? [], statusCode!)
+            }
+            else {
+                print(err.debugDescription)
+            }
         }
     }
     
-    var method: Moya.Method {
-        return .get
-    }
-    
-    var sampleData: Data {
-        return "".data(using: .utf8)!
-    }
-    
-    var task: Task {
-        return .requestPlain
-    }
-    
-    var headers: [String: String]? {
-        return [
-            "Cookie": "iksm_session=\(BotController.shared.sp2Session); path=/; domain=.app.splatoon2.nintendo.net;",
-            "Accept": "application/json"
-        ]
+    static func battle(id: String, result: @escaping (SP2Battle, Int) -> Void) {
+        getRequest(SP2Battle.self, path: "/api/results/\(id)") {
+            obj, statusCode, err in
+            if let obj = obj, err == nil {
+                result(obj, statusCode!)
+            }
+            else {
+                print(err.debugDescription)
+            }
+        }
     }
 }

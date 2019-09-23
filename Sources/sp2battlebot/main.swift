@@ -1,36 +1,39 @@
 import Foundation
-import TelegramBotSDK
+import Telegrammer
 
 // shell: export SP2BATTLE_BOT_TOKEN="Your bot token"
-let token = readToken(from: "SP2BATTLE_BOT_TOKEN")
-
-// shell: export SP2_PRIVATE_SESSION="Your nintendio switch online session"
-guard let sp2Session: String = readConfigurationValue("SP2BATTLE_PRIVATE_SESSION") else {
-    print("\n" +
-        "-----\n" +
-        "ERROR\n" +
-        "-----\n" +
-        "Please create either:\n" +
-        "  - an environment variable named SP2BATTLE_PRIVATE_SESSION\n" +
-        "  - a file named SP2BATTLE_PRIVATE_SESSION\n" +
-        "containing your switch online session.\n\n")
+guard let token = Enviroment.get("SP2BATTLE_BOT_TOKEN") else {
+    print("SP2BATTLE_BOT_TOKEN variable wasn't found in enviroment variables")
     exit(1)
 }
 
-let bot = TelegramBot(token: token)
-let controller = BotController(bot: bot, sp2Session: sp2Session)
-
-let router = Router(bot: bot)
-router["start"] = controller.start
-router["last"] = controller.last
-router["stop"] = controller.stop
-// 10场战斗 last 命令
-for i in 0..<10 {
-    router["last\(i)"] = controller.lastFuncs[i]
+// shell: export SP2_PRIVATE_SESSION="Your nintendio switch online session"
+guard var onlineSession = Enviroment.get("ONLINE_USER_SESSION") else {
+    print("ONLINE_USER_SESSION variable wasn't found in enviroment variables")
+    exit(1)
 }
 
-while let update = bot.nextUpdateSync() {
-    try router.process(update: update)
-}
+var settings = Bot.Settings(token: token, debugMode: true)
 
-fatalError("Server stopped due to error: \(String(describing: bot.lastError))")
+let bot = try! Bot(settings: settings)
+
+// Run bot befor get bot info
+let botUser = try! bot.getMe().wait()
+
+let controller = BotController(bot: bot, botUser: botUser, onlineSession: onlineSession)
+
+let dispatcher = Dispatcher(bot: bot)
+
+let startHandler = CommandHandler(commands: ["/start", "/start@\(botUser.username!)"],
+                                         callback: controller.start)
+dispatcher.add(handler: startHandler)
+
+let lastWithIndexHandler = RegexpHandler(pattern: "^/last ",
+                                         callback: controller.lastWithIndex)
+dispatcher.add(handler: lastWithIndexHandler)
+
+let lastHandler = CommandHandler(commands: ["/last", "/last@\(botUser.username!)"],
+                                         callback: controller.last)
+dispatcher.add(handler: lastHandler)
+
+_ = try Updater(bot: bot, dispatcher: dispatcher).startLongpolling().wait()

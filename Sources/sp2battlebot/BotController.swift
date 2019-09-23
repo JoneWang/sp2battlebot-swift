@@ -5,12 +5,8 @@
 //  Created by Jone Wang on 21/9/2019.
 //
 
-import CCurl
 import Foundation
-import Moya
-import RxMoya
-import RxSwift
-import TelegramBotSDK
+import Telegrammer
 
 enum BotControllerError: Error {
     case NotFoundChatId
@@ -20,28 +16,25 @@ enum BotControllerError: Error {
 class BotController {
     static var shared: BotController!
 
-    var bag = DisposeBag()
-
-    let bot: TelegramBot
-
-    let provider = MoyaProvider<SP2API>()
+    let bot: Bot
+    let botUser: Telegrammer.User
 
     // 已经启动自动战斗结果发送的对话
     // 其中保存了 message id 用于发送新战斗结果时删除上一次的结果消息
     var startedInChat = [Int64: Int?]()
 
     // Switch Online API headers
-    var sp2Session: String
+    var onlineSession: String
 
     // 保存50个 last 命令
-    var lastFuncs = [(context: Context) -> Bool]()
+    var lastFuncs = [(update: Telegrammer.Update) -> Bool]()
     // 用于控制获取 battle 数据轮询
     var loop = false
     // 用于 /start 时，获取一次 lastBattleNumber 而不输出
     var firstGet = true
     // 用于比较 battleNumber，如果和上次不同则认为产生了新的 battle 数据并且发送到 tg
     var lastBattleId = ""
-    
+
     var gameCount = 0
     var gameVictoryCount = 0
 
@@ -57,104 +50,125 @@ class BotController {
         return messageId
     }
 
-    init(bot: TelegramBot, sp2Session: String) {
+    init(bot: Bot, botUser: Telegrammer.User, onlineSession: String) {
         self.bot = bot
-        self.sp2Session = sp2Session
-
-        // 生成获取最近10场战斗的 last 函数
-        for i in 0..<10 {
-            lastFuncs.append { [weak self] context in
-                self?.requestLastBattle(context, battleIndex: i, block: nil)
-                return true
-            }
-        }
+        self.botUser = botUser
+        self.onlineSession = onlineSession
 
         BotController.shared = self
     }
 
-    func start(context: Context) -> Bool {
-        guard let chatId = context.chatId else { return false }
+    func start(_ update: Telegrammer.Update, _ context: BotContext!) throws {
+        guard let message = update.message else { return }
+        let chatId = message.chat.id
 
         guard !started(in: chatId) else {
-            context.respondAsync("@\(bot.username) already started.")
-            return true
+            let params = Bot.SendMessageParams(chatId: .chat(chatId), text: "@\(botUser.username!) already started.")
+            try bot.sendMessage(params: params)
+            return
         }
         startedInChat[chatId] = nil
 
         var startText: String
-        if !context.privateChat {
-            startText = "@\(bot.username) started.\n"
-        } else {
-            startText = "@\(bot.username) started.\n"
-        }
+        startText = "@\(botUser.username!) started.\n"
         startText += "To stop, type /stop"
 
-        context.respondAsync(startText)
+        let params = Bot.SendMessageParams(chatId: .chat(chatId), text: startText)
+        try bot.sendMessage(params: params)
 
         loop = true
-        startLastBattleRequestLoop(context)
-
-        return true
+        startLastBattleRequestLoop(update)
     }
 
-    func stop(context: Context) -> Bool {
-        guard let chatId = context.chatId else { return false }
+    func stop(_ update: Telegrammer.Update, _ context: BotContext!) throws {
+        guard let message = update.message else { return }
+        let chatId = message.chat.id
 
         guard started(in: chatId) else {
-            context.respondAsync("@\(bot.username) already stopped.")
-            return true
+            let params = Bot.SendMessageParams(chatId: .chat(chatId),
+                                               text: "@\(botUser.username!) already stopped.")
+            _ = try bot.sendMessage(params: params)
+            return
         }
         startedInChat.removeValue(forKey: chatId)
         loop = false
         firstGet = true
 
-        context.respondSync("@\(bot.username) stopped. To restart, type /start")
-        return true
+        let params = Bot.SendMessageParams(chatId: .chat(chatId),
+                                           text: "@\(botUser.username!) stopped. To restart, type /start")
+        _ = try bot.sendMessage(params: params)
     }
 
-    func last(context: Context) -> Bool {
-        requestLastBattle(context, battleIndex: 0, block: nil)
-        return true
+    func last(_ update: Telegrammer.Update, _ context: BotContext!) throws {
+        requestLastBattle(update, battleIndex: 0, block: nil)
     }
 
-    private func startLastBattleRequestLoop(_ context: Context) {
-        requestLastBattle(context, requestLoop: true) { _ in
+    func lastWithIndex(_ update: Telegrammer.Update, _ context: BotContext!) throws {
+        guard let messageText = update.message?.text else {
+            return
+        }
+
+        let lastPredicate = NSPredicate(format: "SELF MATCHES %@",
+                                        "^/last (0?[0-4]{1,2}|1[0-9]|49)$")
+        if !lastPredicate.evaluate(with: messageText) {
+            sendLastCommandErrorMessage(update)
+            return
+        }
+
+        let index = Int(String(messageText.split(separator: " ")[1]))!
+        requestLastBattle(update, battleIndex: index, block: nil)
+    }
+
+    func setCookie(_ update: Telegrammer.Update, _ context: BotContext!) throws {
+        guard let message = update.message else { return }
+        let chatId = message.chat.id
+
+        let params = Bot.SendMessageParams(chatId: .chat(chatId),
+                                           text: "@\(botUser.username!) stopped. To restart, type /start")
+        _ = try bot.sendMessage(params: params)
+        
+        // TODO: Set cookie
+    }
+
+    private func startLastBattleRequestLoop(_ update: Telegrammer.Update) {
+        requestLastBattle(update, requestLoop: true) { update in
             if self.loop {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                    self.startLastBattleRequestLoop(context)
+                    self.startLastBattleRequestLoop(update)
                 }
             }
         }
     }
 
-    private func sendBattleToTG(_ context: Context,
+    private func sendBattleToTG(_ update: Telegrammer.Update,
                                 battle: SP2Battle,
-                                requestLoop: Bool) {
+                                requestLoop: Bool) throws {
+        guard let message = update.message else { return }
+        let chatId = message.chat.id
+
         var myTeamResults = battle.myTeamPlayerResults!
         // 将自己的结果添加到成员中
         myTeamResults.append(battle.selfPlayerResult)
 
         let otherTeamResults = battle.otherTeamPlayerResults!
 
-        let sp2Message = TGSP2Message()
-        
+        let battleMessage = TGSP2Message()
+
         if requestLoop {
             if battle.victory {
-                self.gameVictoryCount += 1
-                sp2Message.append(content: "我们赢啦！")
+                gameVictoryCount += 1
+                battleMessage.append(content: "我们赢啦！")
             } else {
-                sp2Message.append(content: "呜呜呜~输了不好意思见人了~")
+                battleMessage.append(content: "呜呜呜~输了不好意思见人了~")
             }
-        
-            sp2Message.append(content:
+
+            battleMessage.append(content:
                 String(format: "`当前胜率-%.0f%% 胜-%d 负-%d`",
                        Double(gameVictoryCount) / Double(gameCount) * 100,
                        gameVictoryCount,
-                       gameCount - gameVictoryCount)
-            )
-        }
-        else {
-            sp2Message.append(content:
+                       gameCount - gameVictoryCount))
+        } else {
+            battleMessage.append(content:
                 String(format: "当前查询的战斗 %@ ID%d",
                        battle.victory ? "VICTORY" : "DEFEAT",
                        battle.battleId))
@@ -171,93 +185,127 @@ class BotController {
         }
 
         if battle.type == .regular {
-            sp2Message.append(content: String(format: "我方 \(battle.type) (%.1f)：", battle.myTeamPercentage!))
-            sp2Message.append(rowsOf: generateMessageRows(myTeamResults))
-            sp2Message.append(content: String(format: "对方 \(battle.type) (%.1f)：", battle.otherTeamPercentage!))
-            sp2Message.append(rowsOf: generateMessageRows(otherTeamResults))
+            battleMessage.append(content: String(format: "我方 \(battle.type) (%.1f)：", battle.myTeamPercentage!))
+            battleMessage.append(rowsOf: generateMessageRows(myTeamResults))
+            battleMessage.append(content: String(format: "对方 \(battle.type) (%.1f)：", battle.otherTeamPercentage!))
+            battleMessage.append(rowsOf: generateMessageRows(otherTeamResults))
         } else if battle.type == .ranked {
-            sp2Message.append(content: "我方：")
-            sp2Message.append(rowsOf: generateMessageRows(myTeamResults))
-            sp2Message.append(content: "对方：")
-            sp2Message.append(rowsOf: generateMessageRows(otherTeamResults))
+            battleMessage.append(content: "我方：")
+            battleMessage.append(rowsOf: generateMessageRows(myTeamResults))
+            battleMessage.append(content: "对方：")
+            battleMessage.append(rowsOf: generateMessageRows(otherTeamResults))
         } else if battle.type == .league {
-            sp2Message.append(content: String(format: "我方 \(battle.type) (%d)：", battle.myEstimateLeaguePoint!))
-            sp2Message.append(rowsOf: generateMessageRows(myTeamResults))
-            sp2Message.append(content: String(format: "对方 \(battle.type) (%d)：", battle.otherEstimateLeaguePoint!))
-            sp2Message.append(rowsOf: generateMessageRows(otherTeamResults))
+            battleMessage.append(content: String(format: "我方 \(battle.type) (%d)：", battle.myEstimateLeaguePoint!))
+            battleMessage.append(rowsOf: generateMessageRows(myTeamResults))
+            battleMessage.append(content: String(format: "对方 \(battle.type) (%d)：", battle.otherEstimateLeaguePoint!))
+            battleMessage.append(rowsOf: generateMessageRows(otherTeamResults))
         }
 
-        if let chatId = context.chatId,
-           let messageId = self.startedMessageId(in: chatId), requestLoop {
-            startedInChat[context.chatId!] = nil
-            bot.deleteMessageSync(chatId: context.chatId!, messageId: messageId)
+        if let messageId = self.startedMessageId(in: chatId), requestLoop {
+            startedInChat[chatId] = nil
+            let params = Bot.DeleteMessageParams(chatId: .chat(chatId), messageId: messageId)
+            _ = try bot.deleteMessage(params: params).do { success in
+                if success {
+                    try! self.sendBattleMessage(chatId: .chat(chatId),
+                                                battleMessage: battleMessage,
+                                                requestLoop: requestLoop)
+                }
+            }
+            return
         }
 
-        print(sp2Message.text)
-        context.respondAsync(sp2Message.text, parseMode: "Markdown") { result, error in
-            print("send completed")
-            if let chatId = result?.chat.id, error == nil, requestLoop {
-                self.startedInChat[chatId] = result?.messageId
+        try sendBattleMessage(chatId: .chat(chatId),
+                              battleMessage: battleMessage,
+                              requestLoop: requestLoop)
+    }
+
+    private func sendBattleMessage(chatId: Telegrammer.ChatId,
+                                   battleMessage: TGSP2Message,
+                                   requestLoop: Bool) throws {
+        print(battleMessage.text)
+        let params = Bot.SendMessageParams(chatId: chatId,
+                                           text: battleMessage.text,
+                                           parseMode: .markdown)
+        _ = try bot.sendMessage(params: params).do { message in
+            let chatId = message.chat.id
+            if requestLoop {
+                self.startedInChat[chatId] = message.messageId
             }
         }
+    }
+
+    private func sendAuthErrorMessage(_ update: Telegrammer.Update) {
+        guard let message = update.message else { return }
+        let chatId = message.chat.id
+
+        let params = Bot.SendMessageParams(chatId: .chat(chatId),
+                                           text: "Cookie invalid.\nTo reset, type /setcookie .",
+                                           parseMode: .markdown)
+        _ = try! bot.sendMessage(params: params)
+        
+        if loop { try! stop(update, nil) }
+    }
+
+    private func sendLastCommandErrorMessage(_ update: Telegrammer.Update) {
+        guard let message = update.message else { return }
+        let chatId = message.chat.id
+
+        let params = Bot.SendMessageParams(chatId: .chat(chatId),
+                                           text: "Command error.\nType /last [0~49] .",
+                                           parseMode: .markdown)
+        _ = try! bot.sendMessage(params: params)
     }
 }
 
 extension BotController {
-    private func requestLastBattle(_ context: Context,
+    private func requestLastBattle(_ update: Telegrammer.Update,
                                    battleIndex: Int = 0,
                                    requestLoop: Bool = false,
-                                   block: ((Context) -> Void)?) {
-        provider.rx.request(.battleList)
-                .map(SP2BattleList.self)
-                .subscribe { [unowned self] event in
-                    switch event {
-                    case .success(let response):
-                        let lastBattle = response.battles[battleIndex]
+                                   block: ((Telegrammer.Update) -> Void)?) {
+        SP2API2.battleList { battles, code in
+            if code == 200 {
+                let lastBattle = battles[battleIndex]
 
-                        if block == nil || (!self.firstGet &&
-                                self.lastBattleId != "" &&
-                                lastBattle.battleId != self.lastBattleId) {
-                            self.requestBattleDetail(context,
-                                                     battleId: lastBattle.battleId,
-                                                     requestLoop: requestLoop)
-                        } else {
-                            self.firstGet = false
-                        }
-
-                        self.lastBattleId = lastBattle.battleId
-
-                        if let block = block {
-                            block(context)
-                        }
-                    case .error(let error):
-                        if let block = block {
-                            block(context)
-                        }
-                        print("\(error)")
-                    }
+                if block == nil || (
+                    !self.firstGet &&
+                        self.lastBattleId != "" &&
+                        lastBattle.battleId != self.lastBattleId) {
+                    self.requestBattleDetail(update,
+                                             battleId: lastBattle.battleId,
+                                             requestLoop: requestLoop)
+                } else {
+                    self.firstGet = false
                 }
-                .disposed(by: bag)
+
+                self.lastBattleId = lastBattle.battleId
+
+                if let block = block {
+                    block(update)
+                }
+            } else if code == 403 {
+                self.sendAuthErrorMessage(update)
+            }
+        }
     }
 
-    private func requestBattleDetail(_ context: Context,
+    private func requestBattleDetail(_ update: Telegrammer.Update,
                                      battleId: String,
                                      requestLoop: Bool) {
-        provider.rx.request(.battleDetail(id: battleId))
-                .map(SP2Battle.self)
-                .subscribe { [unowned self] event in
-                    switch event {
-                    case .success(let battle):
-                        if requestLoop {
-                            self.gameCount += 1
-                        }
-                        self.sendBattleToTG(context,
+        SP2API2.battle(id: battleId) { battle, code in
+            if code == 200 {
+                if requestLoop {
+                    self.gameCount += 1
+                }
+                do {
+                    try self.sendBattleToTG(update,
                                             battle: battle,
                                             requestLoop: requestLoop)
-                    case .error(let error):
-                        print("\(error)")
-                    }
+                } catch {
+                    print(error)
                 }
-                .disposed(by: bag)
+            } else if code == 403 {
+                self.sendAuthErrorMessage(update)
+            }
+        }
     }
 }
