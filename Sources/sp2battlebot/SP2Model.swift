@@ -73,6 +73,8 @@ struct SP2Battle: Decodable {
         otherTeamPercentage = try container.decodeIfPresent(Double.self, forKey: .otherTeamPercentage)
         myTeamCount = try container.decodeIfPresent(Int.self, forKey: .myTeamCount)
         otherTeamCount = try container.decodeIfPresent(Int.self, forKey: .otherTeamCount)
+
+        myTeamPlayerResults?.append(selfPlayerResult)
     }
 }
 

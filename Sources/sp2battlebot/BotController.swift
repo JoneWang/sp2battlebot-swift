@@ -16,7 +16,6 @@ enum BotControllerError: Error {
 class BotController {
     static var shared: BotController!
 
-    let bot: Bot
     let botUser: Telegrammer.User
 
     // 已经启动自动战斗结果发送的对话
@@ -39,7 +38,7 @@ class BotController {
     var gameVictoryCount = 0
 
     func started(in chatId: Int64) -> Bool {
-        return startedInChat[chatId] != nil
+        startedInChat[chatId] != nil
     }
 
     func startedMessageId(in chatId: Int64) -> Int? {
@@ -50,8 +49,7 @@ class BotController {
         return messageId
     }
 
-    init(bot: Bot, botUser: Telegrammer.User, onlineSession: String) {
-        self.bot = bot
+    init(botUser: Telegrammer.User, onlineSession: String) {
         self.botUser = botUser
         self.onlineSession = onlineSession
 
@@ -62,19 +60,15 @@ class BotController {
         guard let message = update.message else { return }
         let chatId = message.chat.id
 
-        guard !started(in: chatId) else {
-            let params = Bot.SendMessageParams(chatId: .chat(chatId), text: "@\(botUser.username!) already started.")
-            try bot.sendMessage(params: params)
+        if loop {
+            _ = TGMessageManager.shared.send(chatId: chatId,
+                                             snippet: .alreadyStartedMessage(botUser: botUser))
             return
         }
         startedInChat[chatId] = nil
 
-        var startText: String
-        startText = "@\(botUser.username!) started.\n"
-        startText += "To stop, type /stop"
-
-        let params = Bot.SendMessageParams(chatId: .chat(chatId), text: startText)
-        try bot.sendMessage(params: params)
+        _ = TGMessageManager.shared.send(chatId: chatId,
+                                         snippet: .startedMessage(botUser: botUser))
 
         loop = true
         startLastBattleRequestLoop(update)
@@ -84,19 +78,16 @@ class BotController {
         guard let message = update.message else { return }
         let chatId = message.chat.id
 
-        guard started(in: chatId) else {
-            let params = Bot.SendMessageParams(chatId: .chat(chatId),
-                                               text: "@\(botUser.username!) already stopped.")
-            _ = try bot.sendMessage(params: params)
+        if !loop {
+            _ = TGMessageManager.shared.send(chatId: chatId,
+                                             snippet: .alreadyStoppedMessage(botUser: botUser))
             return
         }
         startedInChat.removeValue(forKey: chatId)
         loop = false
         firstGet = true
 
-        let params = Bot.SendMessageParams(chatId: .chat(chatId),
-                                           text: "@\(botUser.username!) stopped. To restart, type /start")
-        _ = try bot.sendMessage(params: params)
+        _ = TGMessageManager.shared.send(chatId: chatId, snippet: .stoppedMessage(botUser: botUser))
     }
 
     func last(_ update: Telegrammer.Update, _ context: BotContext!) throws {
@@ -104,33 +95,27 @@ class BotController {
     }
 
     func lastWithIndex(_ update: Telegrammer.Update, _ context: BotContext!) throws {
-        guard let messageText = update.message?.text else {
-            return
-        }
+        guard let messageText = update.message?.text else { return }
+        guard let chatId = update.message?.chat.id else { return }
 
         let lastPredicate = NSPredicate(format: "SELF MATCHES '^/last (0?[0-9]{1,2}|1[0-9]|49)$'")
         if !lastPredicate.evaluate(with: messageText) {
-            sendLastCommandErrorMessage(update)
+            _ = TGMessageManager.shared.send(chatId: chatId,
+                                             snippet: .lastCommandErrorMessage)
             return
         }
 
         let index = Int(String(messageText.split(separator: " ")[1]))!
         if index > 49 {
-            sendLastCommandErrorMessage(update)
+            _ = TGMessageManager.shared.send(chatId: chatId,
+                                             snippet: .lastCommandErrorMessage)
             return
         }
-        
+
         requestLastBattle(update, battleIndex: index, block: nil)
     }
 
     func setCookie(_ update: Telegrammer.Update, _ context: BotContext!) throws {
-        guard let message = update.message else { return }
-        let chatId = message.chat.id
-
-        let params = Bot.SendMessageParams(chatId: .chat(chatId),
-                                           text: "@\(botUser.username!) stopped. To restart, type /start")
-        _ = try bot.sendMessage(params: params)
-
         // TODO: Set cookie
     }
 
@@ -147,115 +132,59 @@ class BotController {
     private func sendBattleToTG(_ update: Telegrammer.Update,
                                 battle: SP2Battle,
                                 requestLoop: Bool) throws {
-        guard let message = update.message else { return }
-        let chatId = message.chat.id
+        guard let chatId = update.message?.chat.id else { return }
 
-        var myTeamResults = battle.myTeamPlayerResults!
-        // 将自己的结果添加到成员中
-        myTeamResults.append(battle.selfPlayerResult)
-
-        let otherTeamResults = battle.otherTeamPlayerResults!
-
-        let battleMessage = TGSP2Message()
-
+        var battleMessage: TGMessage
         if requestLoop {
-            if battle.victory {
-                gameVictoryCount += 1
-                battleMessage.append(content: "我们赢啦！")
-            } else {
-                battleMessage.append(content: "呜呜呜~输了不好意思见人了~")
-            }
-
-            battleMessage.append(content:
-                                 String(format: "`当前胜率-%.0f%% 胜-%d 负-%d`",
-                                        Double(gameVictoryCount) / Double(gameCount) * 100,
-                                        gameVictoryCount,
-                                        gameCount - gameVictoryCount))
+            battleMessage = .pushBattleMessage(victoryGames: gameVictoryCount,
+                                               allGames: gameCount,
+                                               battle: battle)
         } else {
-            let result = battle.victory ? "VICTORY" : "DEFEAT"
-            battleMessage.append(content:"当前查询的战斗 \(result) ID\(battle.battleId)")
-        }
-
-        let generateMessageRows: ([SP2BattlePlayerResult]) -> [TGSP2MessageMemberRow] = { results in
-            results.map { result -> TGSP2MessageMemberRow in
-                TGSP2MessageMemberRow(kill: result.killCount,
-                                      assist: result.assistCount,
-                                      death: result.deathCount,
-                                      special: result.specialCount,
-                                      nickname: result.player.nickname)
-            }
-        }
-
-        if battle.type == .regular {
-            battleMessage.append(content: String(format: "我方 \(battle.type) (%.1f)：", battle.myTeamPercentage!))
-            battleMessage.append(rowsOf: generateMessageRows(myTeamResults))
-            battleMessage.append(content: String(format: "对方 \(battle.type) (%.1f)：", battle.otherTeamPercentage!))
-            battleMessage.append(rowsOf: generateMessageRows(otherTeamResults))
-        } else if battle.type == .ranked {
-            battleMessage.append(content: "我方：")
-            battleMessage.append(rowsOf: generateMessageRows(myTeamResults))
-            battleMessage.append(content: "对方：")
-            battleMessage.append(rowsOf: generateMessageRows(otherTeamResults))
-        } else if battle.type == .league {
-            battleMessage.append(content: String(format: "我方 \(battle.type) (%d)：", battle.myEstimateLeaguePoint!))
-            battleMessage.append(rowsOf: generateMessageRows(myTeamResults))
-            battleMessage.append(content: String(format: "对方 \(battle.type) (%d)：", battle.otherEstimateLeaguePoint!))
-            battleMessage.append(rowsOf: generateMessageRows(otherTeamResults))
+            battleMessage = .lastBattleMessage(battle: battle)
         }
 
         if let messageId = self.startedMessageId(in: chatId), requestLoop {
             startedInChat[chatId] = nil
-            let params = Bot.DeleteMessageParams(chatId: .chat(chatId), messageId: messageId)
-            _ = try bot.deleteMessage(params: params).do { success in
-                if success {
-                    try! self.sendBattleMessage(chatId: .chat(chatId),
-                                                battleMessage: battleMessage,
-                                                requestLoop: requestLoop)
-                }
-            }
+            _ = TGMessageManager.shared
+                    .delete(chatId: chatId, messageId: messageId)
+                    .do { success in
+                        if success {
+                            try! self.sendBattleMessage(chatId: chatId,
+                                                        battleMessage: battleMessage,
+                                                        requestLoop: requestLoop)
+                        }
+                    }
             return
         }
 
-        try sendBattleMessage(chatId: .chat(chatId),
+        try sendBattleMessage(chatId: chatId,
                               battleMessage: battleMessage,
                               requestLoop: requestLoop)
     }
 
-    private func sendBattleMessage(chatId: Telegrammer.ChatId,
-                                   battleMessage: TGSP2Message,
+    private func sendBattleMessage(chatId: Int64,
+                                   battleMessage: TGMessage,
                                    requestLoop: Bool) throws {
-        print(battleMessage.text)
-        let params = Bot.SendMessageParams(chatId: chatId,
-                                           text: battleMessage.text,
-                                           parseMode: .markdown)
-        _ = try bot.sendMessage(params: params).do { message in
-            let chatId = message.chat.id
-            if requestLoop {
-                self.startedInChat[chatId] = message.messageId
-            }
-        }
+        _ = TGMessageManager.shared
+                .send(chatId: chatId,
+                      snippet: battleMessage,
+                      parseMode: .markdown)
+                .do { message in
+                    let chatId = message.chat.id
+                    if requestLoop {
+                        self.startedInChat[chatId] = message.messageId
+                    }
+                }
     }
 
     private func sendAuthErrorMessage(_ update: Telegrammer.Update) {
         guard let message = update.message else { return }
         let chatId = message.chat.id
 
-        let params = Bot.SendMessageParams(chatId: .chat(chatId),
-                                           text: "Cookie invalid.\nTo reset, type /setcookie .",
-                                           parseMode: .markdown)
-        _ = try! bot.sendMessage(params: params)
+        _ = TGMessageManager.shared.send(chatId: chatId,
+                                         snippet: .cookieInvalidMessage)
 
         if loop { try! stop(update, nil) }
-    }
-
-    private func sendLastCommandErrorMessage(_ update: Telegrammer.Update) {
-        guard let message = update.message else { return }
-        let chatId = message.chat.id
-
-        let params = Bot.SendMessageParams(chatId: .chat(chatId),
-                                           text: "Command error.\nType /last [0~49] .",
-                                           parseMode: .markdown)
-        _ = try! bot.sendMessage(params: params)
     }
 }
 
@@ -270,8 +199,8 @@ extension BotController {
 
                 if block == nil || (
                         !self.firstGet &&
-                        self.lastBattleId != "" &&
-                        lastBattle.battleId != self.lastBattleId) {
+                                self.lastBattleId != "" &&
+                                lastBattle.battleId != self.lastBattleId) {
                     self.requestBattleDetail(update,
                                              battleId: lastBattle.battleId,
                                              requestLoop: requestLoop)

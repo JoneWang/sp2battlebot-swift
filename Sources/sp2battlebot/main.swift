@@ -13,27 +13,32 @@ guard var onlineSession = Enviroment.get("ONLINE_USER_SESSION") else {
     exit(1)
 }
 
-var settings = Bot.Settings(token: token, debugMode: true)
-
+let settings = Bot.Settings(token: token, debugMode: true)
 let bot = try! Bot(settings: settings)
+
+TGMessageManager.shared.bot = bot
 
 // Run bot befor get bot info
 let botUser = try! bot.getMe().wait()
 
-let controller = BotController(bot: bot, botUser: botUser, onlineSession: onlineSession)
-
-let dispatcher = Dispatcher(bot: bot)
+let controller = BotController(botUser: botUser, onlineSession: onlineSession)
 
 let startHandler = CommandHandler(commands: ["/start", "/start@\(botUser.username!)"],
-                                         callback: controller.start)
-dispatcher.add(handler: startHandler)
+                                  callback: controller.start)
+
+let stopHandler = CommandHandler(commands: ["/stop", "/stop@\(botUser.username!)"],
+                                  callback: controller.stop)
 
 let lastWithIndexHandler = RegexpHandler(pattern: "^/last ",
                                          callback: controller.lastWithIndex)
-dispatcher.add(handler: lastWithIndexHandler)
 
 let lastHandler = CommandHandler(commands: ["/last", "/last@\(botUser.username!)"],
-                                         callback: controller.last)
+                                 callback: controller.last)
+
+let dispatcher = Dispatcher(bot: bot)
+dispatcher.add(handler: stopHandler)
+dispatcher.add(handler: startHandler)
+dispatcher.add(handler: lastWithIndexHandler)
 dispatcher.add(handler: lastHandler)
 
 _ = try Updater(bot: bot, dispatcher: dispatcher).startLongpolling().wait()
