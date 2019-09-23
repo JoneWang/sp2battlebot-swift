@@ -13,11 +13,6 @@ struct SP2BattleList: Codable {
     enum CodingKeys: String, CodingKey {
         case battles = "results"
     }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        battles = try container.decode([SP2Battle].self, forKey: .battles)
-    }
 }
 
 struct SP2Battle: Codable {
@@ -91,26 +86,8 @@ struct SP2BattlePlayerResult: Codable {
         case specialCount = "special_count"
         case player
     }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        killCount = try container.decode(Int.self, forKey: .killCount)
-        assistCount = try container.decode(Int.self, forKey: .assistCount)
-        deathCount = try container.decode(Int.self, forKey: .deathCount)
-        specialCount = try container.decode(Int.self, forKey: .specialCount)
-        player = try container.decode(SP2Player.self, forKey: .player)
-    }
 }
 
 struct SP2Player: Codable {
     var nickname: String
-
-    enum CodingKeys: String, CodingKey {
-        case nickname
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        nickname = try container.decode(String.self, forKey: .nickname)
-    }
 }
