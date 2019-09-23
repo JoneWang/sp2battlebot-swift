@@ -173,9 +173,7 @@ class BotController {
                                         gameCount - gameVictoryCount))
         } else {
             let result = battle.victory ? "VICTORY" : "DEFEAT"
-            battleMessage.append(content:
-                                 String(format: "当前查询的战斗 \(result) ID%d",
-                                        battle.battleId))
+            battleMessage.append(content:"当前查询的战斗 \(result) ID\(battle.battleId)")
         }
 
         let generateMessageRows: ([SP2BattlePlayerResult]) -> [TGSP2MessageMemberRow] = { results in
