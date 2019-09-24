@@ -11,8 +11,10 @@ struct TGMessageManager {
     var bot: Bot!
 
     func send(chatId: Int64, snippet: TGMessage, parseMode: ParseMode? = nil) -> Future<Message> {
+        let message = TGMessage.selector(snippet)
+        print(message)
         let params = Bot.SendMessageParams(chatId: .chat(chatId),
-                                           text: TGMessage.selector(snippet),
+                                           text: message,
                                            parseMode: parseMode)
         return try! bot.sendMessage(params: params)
     }
