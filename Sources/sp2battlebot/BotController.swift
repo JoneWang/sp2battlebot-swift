@@ -98,8 +98,11 @@ class BotController {
         guard let messageText = update.message?.text else { return }
         guard let chatId = update.message?.chat.id else { return }
 
-        let lastPredicate = NSPredicate(format: "SELF MATCHES '^/last (0?[0-9]{1,2}|1[0-9]|49)$'")
-        if !lastPredicate.evaluate(with: messageText) {
+        let messageRange = NSRange(messageText.startIndex..<messageText.endIndex, in: messageText)
+
+        let lastRegex = try NSRegularExpression(pattern: "^/last (0?[0-9]{1,2}|1[0-9]|49)$")
+        let match = lastRegex.firstMatch(in: messageText, range: messageRange)
+        if match == nil {
             _ = TGMessageManager.shared.send(chatId: chatId,
                                              snippet: .lastCommandErrorMessage)
             return
