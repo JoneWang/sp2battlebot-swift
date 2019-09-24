@@ -226,7 +226,11 @@ extension BotController {
             if code == 200 {
                 if requestLoop {
                     self.gameCount += 1
+                    if battle.victory {
+                        self.gameVictoryCount += 1
+                    }
                 }
+
                 do {
                     try self.sendBattleToChat(chat,
                                               battle: battle,
