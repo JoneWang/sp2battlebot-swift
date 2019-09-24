@@ -6,6 +6,9 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 struct SP2API2 {
     static let baseURL = URL(string: "https://app.splatoon2.nintendo.net")!
