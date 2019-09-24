@@ -125,7 +125,7 @@ class BotController {
     private func startLastBattleRequestLoop(_ update: Telegrammer.Update) {
         requestLastBattle(update, requestLoop: true) { update in
             if self.loop {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
                     self.startLastBattleRequestLoop(update)
                 }
             }
