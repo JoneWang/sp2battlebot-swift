@@ -51,7 +51,7 @@ extension TGMessage {
             lines.append("呜呜呜~输了不好意思见人了~")
         }
 
-        lines.append(String(format: "`当前胜率 %.0f%%  胜 %d  负 %d`",
+        lines.append(String(format: "`当前胜率%.0f%%  胜%d  负%d`",
                             Double(victoryGames) / Double(allGames) * 100,
                             victoryGames,
                             allGames - victoryGames))
@@ -109,21 +109,21 @@ extension TGMessage {
     private static func battleTeamTitle(myTeam: Bool, battle: SP2Battle) -> String {
         let teamName = myTeam ? "我方" : "对方"
 
-        var point = ""
+        var point: String
         switch battle.type {
         case .regular:
             point = [battle.myTeamPercentage,
                      battle.otherTeamPercentage][myTeam.intValue]?
-                    .format("(%.1f)") ?? ""
+                    .format(" (%.1f)") ?? ""
         case .ranked:
-            point = ""
+            point = " "
         case .league:
             point = [battle.myEstimateLeaguePoint,
                      battle.otherEstimateLeaguePoint][myTeam.intValue]?
-                    .format("(%d)") ?? ""
+                    .format(" (%d)") ?? ""
         }
 
-        return "\(teamName) \(battle.type) \(point)："
+        return "\(teamName) \(battle.type)\(point)："
     }
 
     private static func battlePlayerResult(results: [SP2BattlePlayerResult]) -> String {
