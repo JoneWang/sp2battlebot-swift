@@ -112,14 +112,14 @@ extension TGMessage {
         var point: String
         switch battle.type {
         case .regular:
-            point = [battle.myTeamPercentage,
-                     battle.otherTeamPercentage][myTeam.intValue]?
+            point = (myTeam ?
+                    battle.myTeamPercentage : battle.otherTeamPercentage)?
                     .format(" (%.1f)") ?? ""
         case .ranked:
             point = " "
         case .league:
-            point = [battle.myEstimateLeaguePoint,
-                     battle.otherEstimateLeaguePoint][myTeam.intValue]?
+            point = (myTeam ?
+                    battle.myEstimateLeaguePoint : battle.otherEstimateLeaguePoint)?
                     .format(" (%d)") ?? ""
         }
 
