@@ -10,7 +10,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-struct SP2API2 {
+struct SP2API {
     static let baseURL = URL(string: "https://app.splatoon2.nintendo.net")!
 
     static func getRequest<T: Decodable>(_ type: T.Type,

@@ -241,7 +241,7 @@ extension BotController {
                                    battleIndex: Int = 0,
                                    requestLoop: Bool = false,
                                    block: ((DataContext) -> Void)? = nil) {
-        SP2API2.battleList(context: context) { battles, code in
+        SP2API.battleList(context: context) { battles, code in
             if code == 200 {
                 let lastBattle = battles[battleIndex]
 
@@ -271,7 +271,7 @@ extension BotController {
                                      battleId: String,
                                      requestLoop: Bool,
                                      iksmSession: String? = nil) {
-        SP2API2.battle(context: context,
+        SP2API.battle(context: context,
                        id: battleId) { battle, code in
             if code == 200, let battle = battle {
                 if requestLoop {
