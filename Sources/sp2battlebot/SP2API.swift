@@ -26,11 +26,11 @@ struct SP2API2 {
             "Accept": "application/json"
         ]
 
-        // Debug proxy
-        let proxy = [kCFNetworkProxiesHTTPEnable: 1,
-                     kCFNetworkProxiesHTTPProxy: "127.0.0.1",
-                     kCFNetworkProxiesHTTPPort: 1387] as [String: Any]
-        sessionConfiguration.connectionProxyDictionary = proxy
+        // Debug: Use proxy on MacOS
+        // let proxy = [kCFNetworkProxiesHTTPEnable: 1,
+        //              kCFNetworkProxiesHTTPProxy: "127.0.0.1",
+        //              kCFNetworkProxiesHTTPPort: 1387] as [String: Any]
+        // sessionConfiguration.connectionProxyDictionary = proxy
 
         let session = URLSession(configuration: sessionConfiguration)
 
