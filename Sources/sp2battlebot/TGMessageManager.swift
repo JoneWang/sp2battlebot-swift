@@ -9,6 +9,7 @@ struct TGMessageManager {
     static var shared = TGMessageManager()
 
     var bot: Bot!
+    var botUser: TelegramUser!
 
     func send(chatId: Int64, snippet: TGMessage, parseMode: ParseMode? = nil) -> Future<Message> {
         let message = TGMessage.selector(snippet)

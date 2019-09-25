@@ -7,27 +7,29 @@ guard let token = Enviroment.get("SP2BATTLE_BOT_TOKEN") else {
     exit(1)
 }
 
-// shell: export SP2_PRIVATE_SESSION="Your nintendio switch online session"
-guard var onlineSession = Enviroment.get("ONLINE_USER_SESSION") else {
-    print("ONLINE_USER_SESSION variable wasn't found in enviroment variables")
-    exit(1)
-}
-
 let settings = Bot.Settings(token: token, debugMode: true)
 let bot = try! Bot(settings: settings)
-
-TGMessageManager.shared.bot = bot
 
 // Run bot befor get bot info
 let botUser = try! bot.getMe().wait()
 
-let controller = BotController(botUser: botUser, onlineSession: onlineSession)
+TGMessageManager.shared.bot = bot
+TGMessageManager.shared.botUser = botUser
+
+do {
+    try DataStore.shared.createTables()
+} catch {
+    print("SQLite createTables error: \(error)")
+    exit(1)
+}
+
+let controller = BotController()
 
 let startHandler = CommandHandler(commands: ["/start", "/start@\(botUser.username!)"],
                                   callback: controller.start)
 
 let stopHandler = CommandHandler(commands: ["/stop", "/stop@\(botUser.username!)"],
-                                  callback: controller.stop)
+                                 callback: controller.stop)
 
 let lastWithIndexHandler = RegexpHandler(pattern: "^/last ",
                                          callback: controller.lastWithIndex)
@@ -35,10 +37,14 @@ let lastWithIndexHandler = RegexpHandler(pattern: "^/last ",
 let lastHandler = CommandHandler(commands: ["/last", "/last@\(botUser.username!)"],
                                  callback: controller.last)
 
+let setIKSMSessionHandler = RegexpHandler(pattern: "^/setiksm",
+                                          callback: controller.setIKSMSession)
+
 let dispatcher = Dispatcher(bot: bot)
 dispatcher.add(handler: stopHandler)
 dispatcher.add(handler: startHandler)
 dispatcher.add(handler: lastWithIndexHandler)
 dispatcher.add(handler: lastHandler)
+dispatcher.add(handler: setIKSMSessionHandler)
 
 _ = try Updater(bot: bot, dispatcher: dispatcher).startLongpolling().wait()

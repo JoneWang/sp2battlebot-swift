@@ -12,11 +12,16 @@ enum TGMessage {
     case pushBattleMessage(victoryGames: Int, allGames: Int, battle: SP2Battle)
     case lastBattleMessage(battle: SP2Battle)
     case lastCommandErrorMessage
-    case startedMessage(botUser: User)
-    case stoppedMessage(botUser: User)
-    case alreadyStartedMessage(botUser: User)
-    case alreadyStoppedMessage(botUser: User)
-    case cookieInvalidMessage
+    case startedMessage
+    case stoppedMessage
+    case alreadyStartedMessage
+    case alreadyStoppedMessage
+    case iksmSessionInvalidMessage
+    case iksmSessionNotSetMessage
+    case setIKSMSessionCommandErrorMessage
+    case setIKSMSessionUpdateSuccessMessage
+    case setIKSMSessionAddSuccessMessage
+    case areYouHumanErrorMessage
 }
 
 extension TGMessage {
@@ -29,16 +34,26 @@ extension TGMessage {
             return lastBattleMessage(battle: battle)
         case .lastCommandErrorMessage:
             return lastCommandErrorMessage()
-        case .startedMessage(let botUser):
-            return startedMessage(botUser: botUser)
-        case .stoppedMessage(let botUser):
-            return stoppedMessage(botUser: botUser)
-        case .alreadyStartedMessage(let botUser):
-            return alreadyStartedMessage(botUser: botUser)
-        case .alreadyStoppedMessage(let botUser):
-            return alreadyStoppedMessage(botUser: botUser)
-        case .cookieInvalidMessage:
-            return cookieInvalidMessage()
+        case .startedMessage:
+            return startedMessage()
+        case .stoppedMessage:
+            return stoppedMessage()
+        case .alreadyStartedMessage:
+            return alreadyStartedMessage()
+        case .alreadyStoppedMessage:
+            return alreadyStoppedMessage()
+        case .iksmSessionInvalidMessage:
+            return iksmSessionInvalidMessage()
+        case .iksmSessionNotSetMessage:
+            return iksmSessionNotSetMessage()
+        case .setIKSMSessionCommandErrorMessage:
+            return setIKSMSessionCommandErrorMessage()
+        case .setIKSMSessionUpdateSuccessMessage:
+            return setIKSMSessionUpdateSuccessMessage()
+        case .setIKSMSessionAddSuccessMessage:
+            return setIKSMSessionAddSuccessMessage()
+        case .areYouHumanErrorMessage:
+            return areYouHumanErrorMessage()
         }
     }
 
@@ -84,24 +99,48 @@ extension TGMessage {
         "Command error.\nType /last [0~49] ."
     }
 
-    static func startedMessage(botUser: User) -> String {
-        "@\(botUser.username!) started.\n To stop, type /stop"
+    static func startedMessage() -> String {
+        let botUsername = TGMessageManager.shared.botUser.username!
+        return "@\(botUsername) started.\n To stop, type /stop"
     }
 
-    static func stoppedMessage(botUser: User) -> String {
-        "@\(botUser.username!) stopped.\n To restart, type /start"
+    static func stoppedMessage() -> String {
+        let botUsername = TGMessageManager.shared.botUser.username!
+        return "@\(botUsername) stopped.\n To restart, type /start"
     }
 
-    static func alreadyStartedMessage(botUser: User) -> String {
-        "@\(botUser.username!) already started."
+    static func alreadyStartedMessage() -> String {
+        let botUsername = TGMessageManager.shared.botUser.username!
+        return "@\(botUsername) already started."
     }
 
-    static func alreadyStoppedMessage(botUser: User) -> String {
-        "@\(botUser.username!) already stopped."
+    static func alreadyStoppedMessage() -> String {
+        let botUsername = TGMessageManager.shared.botUser.username!
+        return "@\(botUsername) already stopped."
     }
 
-    static func cookieInvalidMessage() -> String {
-        "Cookie invalid.\nTo reset, type /setcookie ."
+    static func iksmSessionInvalidMessage() -> String {
+        "The `iksm_session` invalid.\nTo reset, type /setiksm `[iksm_session]`."
+    }
+
+    static func iksmSessionNotSetMessage() -> String {
+        "Your `iksm_session` not set.\nTo set, type /setiksm `[iksm_session]`."
+    }
+
+    static func setIKSMSessionCommandErrorMessage() -> String {
+        "Type error.\nPlease type /setiksm `[iksm_session]`.\nIf you don't know `iksm_session`, to do balabala."
+    }
+
+    static func setIKSMSessionUpdateSuccessMessage() -> String {
+        "Success! You set a new iksm_session."
+    }
+
+    static func setIKSMSessionAddSuccessMessage() -> String {
+        "Oh~ Nice to meet you.\nNow you'll know me with /help."
+    }
+
+    static func areYouHumanErrorMessage() -> String {
+        "Are you human? keke~"
     }
 }
 
