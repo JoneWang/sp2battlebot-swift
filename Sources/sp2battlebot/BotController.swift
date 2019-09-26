@@ -127,6 +127,21 @@ class BotController {
         requestLastBattle(dataContext, battleIndex: index)
     }
 
+    func last50(_ update: Update, _ context: BotContext!) throws {
+        guard let dataContext = DataContext.from(update: update) else { return }
+
+        SP2API.battleList(context: dataContext) { battleOverview, code in
+            if code == 200, let battleOverview = battleOverview {
+                _ = TGMessageManager.shared.send(context: dataContext,
+                                                 message: .last50OverviewMessage(battleOverview: battleOverview),
+                                                 parseMode: .markdown)
+            }
+            else if code == 403 {
+                self.sendAuthErrorMessage(dataContext)
+            }
+        }
+    }
+
     func setIKSMSession(_ update: Update, _ context: BotContext!) throws {
         guard let messageText = update.message?.text else { return }
         guard var dataContext = DataContext.from(update: update) else { return }
@@ -248,9 +263,9 @@ extension BotController {
                                    battleIndex: Int = 0,
                                    requestLoop: Bool = false,
                                    block: ((DataContext) -> Void)? = nil) {
-        SP2API.battleList(context: context) { battles, code in
-            if code == 200 {
-                let lastBattle = battles[battleIndex]
+        SP2API.battleList(context: context) { battleOverview, code in
+            if code == 200, let battleOverview = battleOverview {
+                let lastBattle = battleOverview.battles[battleIndex]
 
                 if !requestLoop ||
                            (!self.firstGet &&

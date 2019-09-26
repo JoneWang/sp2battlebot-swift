@@ -11,6 +11,7 @@ import Telegrammer
 enum TGMessage {
     case pushBattleMessage(victoryGames: Int, allGames: Int, battle: SP2Battle)
     case lastBattleMessage(battle: SP2Battle)
+    case last50OverviewMessage(battleOverview: SP2BattleOverview)
     case lastCommandErrorMessage
     case startedMessage
     case stoppedMessage
@@ -33,6 +34,8 @@ extension TGMessage {
             return pushBattleMessage(context, victoryGames: victoryGames, allGames: allGames, battle: battle)
         case .lastBattleMessage(let battle):
             return lastBattleMessage(context, battle: battle)
+        case .last50OverviewMessage(let battleOverview):
+            return last50OverviewMessage(context, battleOverview: battleOverview)
         case .lastCommandErrorMessage:
             return lastCommandErrorMessage(context)
         case .startedMessage:
@@ -94,6 +97,40 @@ extension TGMessage {
 
         lines.append(battleTeamTitle(myTeam: false, battle: battle))
         lines.append(battlePlayerResult(results: battle.otherTeamPlayerResults!))
+
+        return lines.joined(separator: "\n")
+    }
+
+    static func last50OverviewMessage(_ context: DataContext, battleOverview: SP2BattleOverview) -> String {
+        let battles = battleOverview.battles
+        let summary = battleOverview.summary
+
+        var lines = [String]()
+        lines.append("Last 50 Battle:")
+
+        lines.append("*▸* `V/D: `*\(summary.victoryCount)/\(summary.defeatCount)*`(\(summary.victoryRate * 100)%)`")
+
+        lines.append(String(format: "*▸* `AVG: `*%.1f*`(%.1f)k `*%.1f*`d %.1fsp`",
+                            summary.killCountAverage,
+                            summary.assistCountAverage,
+                            summary.deathCountAverage,
+                            summary.specialCountAverage
+        ))
+
+        var line = ""
+        for i in 0..<50 {
+            if battles.indices.contains(i) {
+                let battle = battles[i]
+                line += battle.victory ? "🤪" : "👿"
+            } else {
+                line += "🐦"
+            }
+
+            if (i + 1) % 10 == 0 {
+                lines.append(line)
+                line = ""
+            }
+        }
 
         return lines.joined(separator: "\n")
     }

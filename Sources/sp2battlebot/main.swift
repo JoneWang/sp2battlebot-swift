@@ -37,12 +37,16 @@ let lastWithIndexHandler = RegexpHandler(pattern: "^/last ",
 let lastHandler = CommandHandler(commands: ["/last", "/last@\(botUser.username!)"],
                                  callback: controller.last)
 
+let last50Handler = CommandHandler(commands: ["/last50", "/last50@\(botUser.username!)"],
+                                 callback: controller.last50)
+
 let setIKSMSessionHandler = RegexpHandler(pattern: "^/setiksm",
                                           callback: controller.setIKSMSession)
 
 let dispatcher = Dispatcher(bot: bot)
 dispatcher.add(handler: stopHandler)
 dispatcher.add(handler: startHandler)
+dispatcher.add(handler: last50Handler)
 dispatcher.add(handler: lastWithIndexHandler)
 dispatcher.add(handler: lastHandler)
 dispatcher.add(handler: setIKSMSessionHandler)

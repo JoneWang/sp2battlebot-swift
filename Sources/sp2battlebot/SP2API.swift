@@ -46,20 +46,20 @@ struct SP2API {
     }
 
     static func battleList(context: DataContext,
-                           result: @escaping ([SP2Battle], Int) -> Void) {
+                           result: @escaping (SP2BattleOverview?, Int) -> Void) {
         if let iksmSession = context.user.iksmSession {
-            getRequest(SP2BattleList.self,
+            getRequest(SP2BattleOverview.self,
                        iksmSession: iksmSession,
                        path: "/api/results") {
                 obj, statusCode, err in
                 if err == nil {
-                    result(obj?.battles ?? [], statusCode!)
+                    result(obj, statusCode!)
                 } else {
                     print(err.debugDescription)
                 }
             }
         } else {
-            result([], 403)
+            result(nil, 403)
         }
     }
 

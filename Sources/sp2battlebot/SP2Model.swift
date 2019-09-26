@@ -7,11 +7,33 @@
 
 import Foundation
 
-struct SP2BattleList: Decodable {
+struct SP2BattleOverview: Decodable {
     var battles: [SP2Battle]
+    var summary: SP2BattleOverviewSummary
 
     enum CodingKeys: String, CodingKey {
         case battles = "results"
+        case summary = "summary"
+    }
+}
+
+struct SP2BattleOverviewSummary: Decodable {
+    var victoryCount: Int
+    var defeatCount: Int
+    var victoryRate: Double
+    var killCountAverage: Double
+    var deathCountAverage: Double
+    var assistCountAverage: Double
+    var specialCountAverage: Double
+
+    enum CodingKeys: String, CodingKey {
+        case victoryCount = "victory_count"
+        case defeatCount = "defeat_count"
+        case victoryRate = "victory_rate"
+        case killCountAverage = "kill_count_average"
+        case deathCountAverage = "death_count_average"
+        case assistCountAverage = "assist_count_average"
+        case specialCountAverage = "special_count_average"
     }
 }
 
