@@ -134,6 +134,13 @@ class BotController {
         if dataContext.user.isBot {
             _ = TGMessageManager.shared.send(context: dataContext,
                                              message: .areYouHumanErrorMessage)
+            return
+        }
+
+        if dataContext.chat.type != .private {
+            _ = TGMessageManager.shared.send(context: dataContext,
+                                             message: .setIKSMSessionCommandMustPrivateChatErrorMessage)
+            return
         }
 
         guard let iksmRange = messageText.range(of: #"\b[a-z0-9]{40}$\b"#,

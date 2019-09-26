@@ -18,6 +18,7 @@ enum TGMessage {
     case alreadyStoppedMessage
     case iksmSessionInvalidMessage
     case iksmSessionNotSetMessage
+    case setIKSMSessionCommandMustPrivateChatErrorMessage
     case setIKSMSessionCommandErrorMessage
     case setIKSMSessionUpdateSuccessMessage
     case setIKSMSessionAddSuccessMessage
@@ -46,6 +47,8 @@ extension TGMessage {
             return iksmSessionInvalidMessage(context)
         case .iksmSessionNotSetMessage:
             return iksmSessionNotSetMessage(context)
+        case .setIKSMSessionCommandMustPrivateChatErrorMessage:
+            return setIKSMSessionCommandMustPrivateChatErrorMessage(context)
         case .setIKSMSessionCommandErrorMessage:
             return setIKSMSessionCommandErrorMessage(context)
         case .setIKSMSessionUpdateSuccessMessage:
@@ -127,6 +130,11 @@ extension TGMessage {
     static func iksmSessionNotSetMessage(_ context: DataContext) -> String {
         let botUsername = TGMessageManager.shared.botUser.username!
         return "Your `iksm_session` not set.\nTo set, send /setiksm `[iksm_session]` to @\(botUsername)."
+    }
+
+    static func setIKSMSessionCommandMustPrivateChatErrorMessage(_ context: DataContext) -> String {
+        let botUsername = TGMessageManager.shared.botUser.username!
+        return "Command /setiksm must send to @\(botUsername)."
     }
 
     static func setIKSMSessionCommandErrorMessage(_ context: DataContext) -> String {
