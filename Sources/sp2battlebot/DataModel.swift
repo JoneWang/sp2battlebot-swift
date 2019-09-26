@@ -7,15 +7,34 @@ import Telegrammer
 
 typealias TelegramUser = Telegrammer.User
 
-// typealias TelegramChat = Telegrammer.Chat
-
 struct User {
+    var id: Int64
+    var isBot: Bool
+    var username: String?
+    var firstName: String
+    var lastName: String?
     var iksmSession: String?
-    var telegramUser: TelegramUser
 
-    init(iksmSession: String?, telegramUser: TelegramUser) {
+    init(telegramUser: TelegramUser) {
+        self.id = telegramUser.id
+        self.isBot = telegramUser.isBot
+        self.username = telegramUser.username
+        self.firstName = telegramUser.firstName
+        self.lastName = telegramUser.lastName
+    }
+
+    init(id: Int64,
+         isBot: Bool,
+         username: String? = nil,
+         firstName: String,
+         lastName: String? = nil,
+         iksmSession: String? = nil) {
+        self.id = id
+        self.isBot = isBot
+        self.username = username
+        self.firstName = firstName
+        self.lastName = lastName
         self.iksmSession = iksmSession
-        self.telegramUser = telegramUser
     }
 }
 
@@ -35,9 +54,13 @@ struct DataContext {
         }
 
         do {
-            let userId = tgUser.id
-            guard let user = try UserDataHelper.find(id: userId) else {
-                return nil
+            var user = User(telegramUser: tgUser)
+
+            let storeUser = try UserDataHelper.find(id: tgUser.id)
+            if let storeUser = storeUser {
+                let iksmSession = storeUser.iksmSession
+
+                user.iksmSession = iksmSession
             }
 
             return DataContext(user: user, chat: message.chat)

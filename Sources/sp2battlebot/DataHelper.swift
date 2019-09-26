@@ -16,10 +16,10 @@ protocol DataHelper {
 
 class UserDataHelper: DataHelper {
     static let table = Table("users")
-    static let telegramId = Expression<Int64>("telegram_id")
-    static let telegramFirstName = Expression<String>("telegram_first_name")
-    static let telegramLastName = Expression<String?>("telegram_last_name")
-    static let telegramUsername = Expression<String?>("telegram_username")
+    static let userId = Expression<Int64>("id")
+    static let username = Expression<String?>("username")
+    static let firstName = Expression<String>("first_name")
+    static let lastName = Expression<String?>("last_name")
     static let iksmSession = Expression<String?>("iksm_session")
 
     typealias T = User
@@ -27,33 +27,36 @@ class UserDataHelper: DataHelper {
     static func createTable() throws {
         let db = DataStore.shared.db
         try db.run(table.create(ifNotExists: true) { t in
-            t.column(telegramId, primaryKey: true)
-            t.column(telegramFirstName)
-            t.column(telegramLastName)
-            t.column(telegramUsername, unique: true)
+            t.column(userId, primaryKey: true)
+            t.column(firstName)
+            t.column(lastName)
+            t.column(username, unique: true)
             t.column(iksmSession)
         })
     }
 
     static func insert(_ item: T) throws {
         let db = DataStore.shared.db
-        try db.run(table.insert(telegramId <- item.telegramUser.id,
-                                telegramFirstName <- item.telegramUser.firstName,
-                                telegramLastName <- item.telegramUser.lastName,
-                                telegramUsername <- item.telegramUser.username,
+        try db.run(table.insert(userId <- item.id,
+                                firstName <- item.firstName,
+                                lastName <- item.lastName,
+                                username <- item.username,
                                 iksmSession <- item.iksmSession!))
     }
 
     static func find(id: Int64) throws -> T? {
         let db = DataStore.shared.db
 
-        let query = table.filter(telegramId == id)
+        let query = table.filter(userId == id)
         let items = try db.prepare(query)
         for item in items {
-            return User(iksmSession: item[iksmSession],
-                        telegramUser: TelegramUser(id: item[telegramId],
-                                                   isBot: false,
-                                                   firstName: item[telegramFirstName]))
+            var user = User(id: item[userId],
+                            isBot: false,
+                            username: item[username],
+                            firstName: item[firstName],
+                            lastName: item[lastName])
+            user.iksmSession = item[iksmSession]
+            return user
         }
 
         return nil
@@ -62,10 +65,10 @@ class UserDataHelper: DataHelper {
     static func update(_ item: T) throws {
         let db = DataStore.shared.db
 
-        let query = table.filter(telegramId == item.telegramUser.id)
+        let query = table.filter(userId == item.id)
         try db.run(query.update(iksmSession <- item.iksmSession,
-                                telegramFirstName <- item.telegramUser.firstName,
-                                telegramLastName <- item.telegramUser.lastName,
-                                telegramUsername <- item.telegramUser.username))
+                                firstName <- item.firstName,
+                                lastName <- item.lastName,
+                                username <- item.username))
     }
 }

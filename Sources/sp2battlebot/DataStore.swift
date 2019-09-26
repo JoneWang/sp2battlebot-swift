@@ -35,6 +35,7 @@ class DataStore {
         do {
             try UserDataHelper.createTable()
         } catch {
+            print(error)
             throw DataStoreError.DatabaseConnectionError
         }
     }

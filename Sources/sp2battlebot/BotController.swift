@@ -66,14 +66,14 @@ class BotController {
 
         let chatId = dataContext.chat.id
         if loop {
-            _ = TGMessageManager.shared.send(chatId: chatId,
-                                             snippet: .alreadyStartedMessage)
+            _ = TGMessageManager.shared.send(context: dataContext,
+                                             message: .alreadyStartedMessage)
             return
         }
         startedInChat[chatId] = nil
 
-        _ = TGMessageManager.shared.send(chatId: dataContext.chat.id,
-                                         snippet: .startedMessage)
+        _ = TGMessageManager.shared.send(context: dataContext,
+                                         message: .startedMessage)
 
         loop = true
 
@@ -94,68 +94,69 @@ class BotController {
 
     func last(_ update: Update, _ context: BotContext!) throws {
         guard let dataContext = DataContext.from(update: update) else { return }
-        requestLastBattle(dataContext, battleIndex: 0, block: nil)
+        requestLastBattle(dataContext, battleIndex: 0)
     }
 
     func lastWithIndex(_ update: Update, _ context: BotContext!) throws {
         guard let messageText = update.message?.text else { return }
         guard let dataContext = DataContext.from(update: update) else { return }
 
-        let chatId = dataContext.chat.id
+        if dataContext.user.iksmSession == nil {
+            _ = TGMessageManager.shared.send(context: dataContext,
+                                             message: .lastCommandErrorMessage)
+            return
+        }
 
         let messageRange = NSRange(messageText.startIndex..<messageText.endIndex, in: messageText)
 
         let lastRegex = try NSRegularExpression(pattern: "^/last (0?[0-9]{1,2}|1[0-9]|49)$")
         let match = lastRegex.firstMatch(in: messageText, range: messageRange)
         if match == nil {
-            _ = TGMessageManager.shared.send(chatId: chatId,
-                                             snippet: .lastCommandErrorMessage)
+            _ = TGMessageManager.shared.send(context: dataContext,
+                                             message: .lastCommandErrorMessage)
             return
         }
 
         let index = Int(String(messageText.split(separator: " ")[1]))!
         if index > 49 {
-            _ = TGMessageManager.shared.send(chatId: chatId,
-                                             snippet: .lastCommandErrorMessage)
+            _ = TGMessageManager.shared.send(context: dataContext,
+                                             message: .lastCommandErrorMessage)
             return
         }
 
-        requestLastBattle(dataContext, battleIndex: index, block: nil)
+        requestLastBattle(dataContext, battleIndex: index)
     }
 
     func setIKSMSession(_ update: Update, _ context: BotContext!) throws {
-        guard let message = update.message else { return }
-        guard let messageText = message.text else { return }
-        guard let fromTelegramUser = message.from else { return }
+        guard let messageText = update.message?.text else { return }
+        guard var dataContext = DataContext.from(update: update) else { return }
 
-        let chat = message.chat
-
-        if fromTelegramUser.isBot {
-            _ = TGMessageManager.shared.send(chatId: chat.id,
-                                             snippet: .areYouHumanErrorMessage)
+        if dataContext.user.isBot {
+            _ = TGMessageManager.shared.send(context: dataContext,
+                                             message: .areYouHumanErrorMessage)
         }
 
         guard let iksmRange = messageText.range(of: #"\b[a-z0-9]{40}$\b"#,
                                                 options: .regularExpression) else {
-            _ = TGMessageManager.shared.send(chatId: chat.id,
-                                             snippet: .setIKSMSessionCommandErrorMessage,
+            _ = TGMessageManager.shared.send(context: dataContext,
+                                             message: .setIKSMSessionCommandErrorMessage,
                                              parseMode: .markdown)
             return
         }
 
         let iksmSession = String(messageText[iksmRange])
         do {
-            if var user = try UserDataHelper.find(id: fromTelegramUser.id) {
+            if try UserDataHelper.find(id: dataContext.user.id) != nil {
+                var user = dataContext.user
                 user.iksmSession = iksmSession
-                user.telegramUser = fromTelegramUser
                 try UserDataHelper.update(user)
-                _ = TGMessageManager.shared.send(chatId: chat.id,
-                                                 snippet: .setIKSMSessionUpdateSuccessMessage)
+                _ = TGMessageManager.shared.send(context: dataContext,
+                                                 message: .setIKSMSessionUpdateSuccessMessage)
             } else {
-                let user = User(iksmSession: iksmSession, telegramUser: fromTelegramUser)
-                try UserDataHelper.insert(user)
-                _ = TGMessageManager.shared.send(chatId: chat.id,
-                                                 snippet: .setIKSMSessionAddSuccessMessage)
+                dataContext.user.iksmSession = iksmSession
+                try UserDataHelper.insert(dataContext.user)
+                _ = TGMessageManager.shared.send(context: dataContext,
+                                                 message: .setIKSMSessionAddSuccessMessage)
             }
         } catch {
             print(error)
@@ -166,8 +167,8 @@ class BotController {
         let chatId = context.chat.id
 
         if !loop {
-            _ = TGMessageManager.shared.send(chatId: chatId,
-                                             snippet: .alreadyStoppedMessage)
+            _ = TGMessageManager.shared.send(context: context,
+                                             message: .alreadyStoppedMessage)
             return
         }
         startedInChat.removeValue(forKey: chatId)
@@ -178,7 +179,7 @@ class BotController {
             notFinishedJob.scheduleRemoval()
         }
 
-        _ = TGMessageManager.shared.send(chatId: chatId, snippet: .stoppedMessage)
+        _ = TGMessageManager.shared.send(context: context, message: .stoppedMessage)
     }
 
     private func sendBattleToChat(_ context: DataContext,
@@ -193,25 +194,24 @@ class BotController {
             battleMessage = .lastBattleMessage(battle: battle)
         }
 
-        try sendBattleMessage(chatId: context.chat.id,
+        try sendBattleMessage(context: context,
                               battleMessage: battleMessage,
                               requestLoop: requestLoop)
 
         if let messageId = self.startedMessageId(in: context.chat.id), requestLoop {
             startedInChat[context.chat.id] = nil
             _ = TGMessageManager.shared
-                    .delete(chatId: context.chat.id, messageId: messageId)
+                    .delete(context: context, messageId: messageId)
             return
         }
     }
 
-    private func sendBattleMessage(chatId: Int64,
+    private func sendBattleMessage(context: DataContext,
                                    battleMessage: TGMessage,
                                    requestLoop: Bool) throws {
-        _ = TGMessageManager.shared
-                .send(chatId: chatId,
-                      snippet: battleMessage,
-                      parseMode: .markdown)
+        _ = TGMessageManager.shared.send(context: context,
+                                         message: battleMessage,
+                                         parseMode: .markdown)
                 .do { message in
                     let chatId = message.chat.id
                     if requestLoop {
@@ -222,12 +222,12 @@ class BotController {
 
     private func sendAuthErrorMessage(_ context: DataContext) {
         if context.user.iksmSession == nil {
-            _ = TGMessageManager.shared.send(chatId: context.chat.id,
-                                             snippet: .iksmSessionNotSetMessage,
+            _ = TGMessageManager.shared.send(context: context,
+                                             message: .iksmSessionNotSetMessage,
                                              parseMode: .markdown)
         } else {
-            _ = TGMessageManager.shared.send(chatId: context.chat.id,
-                                             snippet: .iksmSessionInvalidMessage,
+            _ = TGMessageManager.shared.send(context: context,
+                                             message: .iksmSessionInvalidMessage,
                                              parseMode: .markdown)
         }
 
@@ -272,7 +272,7 @@ extension BotController {
                                      requestLoop: Bool,
                                      iksmSession: String? = nil) {
         SP2API.battle(context: context,
-                       id: battleId) { battle, code in
+                      id: battleId) { battle, code in
             if code == 200, let battle = battle {
                 if requestLoop {
                     self.gameCount += 1

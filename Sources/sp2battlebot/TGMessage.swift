@@ -26,38 +26,38 @@ enum TGMessage {
 
 extension TGMessage {
 
-    static func selector(_ s: TGMessage) -> String {
-        switch s {
+    static func selector(context: DataContext, message: TGMessage) -> String {
+        switch message {
         case .pushBattleMessage(let victoryGames, let allGames, let battle):
-            return pushBattleMessage(victoryGames: victoryGames, allGames: allGames, battle: battle)
+            return pushBattleMessage(context, victoryGames: victoryGames, allGames: allGames, battle: battle)
         case .lastBattleMessage(let battle):
-            return lastBattleMessage(battle: battle)
+            return lastBattleMessage(context, battle: battle)
         case .lastCommandErrorMessage:
-            return lastCommandErrorMessage()
+            return lastCommandErrorMessage(context)
         case .startedMessage:
-            return startedMessage()
+            return startedMessage(context)
         case .stoppedMessage:
-            return stoppedMessage()
+            return stoppedMessage(context)
         case .alreadyStartedMessage:
-            return alreadyStartedMessage()
+            return alreadyStartedMessage(context)
         case .alreadyStoppedMessage:
-            return alreadyStoppedMessage()
+            return alreadyStoppedMessage(context)
         case .iksmSessionInvalidMessage:
-            return iksmSessionInvalidMessage()
+            return iksmSessionInvalidMessage(context)
         case .iksmSessionNotSetMessage:
-            return iksmSessionNotSetMessage()
+            return iksmSessionNotSetMessage(context)
         case .setIKSMSessionCommandErrorMessage:
-            return setIKSMSessionCommandErrorMessage()
+            return setIKSMSessionCommandErrorMessage(context)
         case .setIKSMSessionUpdateSuccessMessage:
-            return setIKSMSessionUpdateSuccessMessage()
+            return setIKSMSessionUpdateSuccessMessage(context)
         case .setIKSMSessionAddSuccessMessage:
-            return setIKSMSessionAddSuccessMessage()
+            return setIKSMSessionAddSuccessMessage(context)
         case .areYouHumanErrorMessage:
-            return areYouHumanErrorMessage()
+            return areYouHumanErrorMessage(context)
         }
     }
 
-    static func pushBattleMessage(victoryGames: Int, allGames: Int, battle: SP2Battle) -> String {
+    static func pushBattleMessage(_ context: DataContext, victoryGames: Int, allGames: Int, battle: SP2Battle) -> String {
         var lines = [String]()
 
         if battle.victory {
@@ -80,7 +80,7 @@ extension TGMessage {
         return lines.joined(separator: "\n")
     }
 
-    static func lastBattleMessage(battle: SP2Battle) -> String {
+    static func lastBattleMessage(_ context: DataContext, battle: SP2Battle) -> String {
         var lines = [String]()
 
         let result = battle.victory ? "VICTORY" : "DEFEAT"
@@ -95,51 +95,53 @@ extension TGMessage {
         return lines.joined(separator: "\n")
     }
 
-    static func lastCommandErrorMessage() -> String {
+    static func lastCommandErrorMessage(_ context: DataContext) -> String {
         "Command error.\nType /last [0~49] ."
     }
 
-    static func startedMessage() -> String {
+    static func startedMessage(_ context: DataContext) -> String {
         let botUsername = TGMessageManager.shared.botUser.username!
         return "@\(botUsername) started.\n To stop, type /stop"
     }
 
-    static func stoppedMessage() -> String {
+    static func stoppedMessage(_ context: DataContext) -> String {
         let botUsername = TGMessageManager.shared.botUser.username!
         return "@\(botUsername) stopped.\n To restart, type /start"
     }
 
-    static func alreadyStartedMessage() -> String {
+    static func alreadyStartedMessage(_ context: DataContext) -> String {
         let botUsername = TGMessageManager.shared.botUser.username!
         return "@\(botUsername) already started."
     }
 
-    static func alreadyStoppedMessage() -> String {
+    static func alreadyStoppedMessage(_ context: DataContext) -> String {
         let botUsername = TGMessageManager.shared.botUser.username!
         return "@\(botUsername) already stopped."
     }
 
-    static func iksmSessionInvalidMessage() -> String {
-        "The `iksm_session` invalid.\nTo reset, type /setiksm `[iksm_session]`."
+    static func iksmSessionInvalidMessage(_ context: DataContext) -> String {
+        let botUsername = TGMessageManager.shared.botUser.username!
+        return "The `iksm_session` invalid.\nTo reset, send /setiksm `[iksm_session]` to @\(botUsername)."
     }
 
-    static func iksmSessionNotSetMessage() -> String {
-        "Your `iksm_session` not set.\nTo set, type /setiksm `[iksm_session]`."
+    static func iksmSessionNotSetMessage(_ context: DataContext) -> String {
+        let botUsername = TGMessageManager.shared.botUser.username!
+        return "Your `iksm_session` not set.\nTo set, send /setiksm `[iksm_session]` to @\(botUsername)."
     }
 
-    static func setIKSMSessionCommandErrorMessage() -> String {
+    static func setIKSMSessionCommandErrorMessage(_ context: DataContext) -> String {
         "Type error.\nPlease type /setiksm `[iksm_session]`.\nIf you don't know `iksm_session`, to do balabala."
     }
 
-    static func setIKSMSessionUpdateSuccessMessage() -> String {
+    static func setIKSMSessionUpdateSuccessMessage(_ context: DataContext) -> String {
         "Success! You set a new iksm_session."
     }
 
-    static func setIKSMSessionAddSuccessMessage() -> String {
+    static func setIKSMSessionAddSuccessMessage(_ context: DataContext) -> String {
         "Oh~ Nice to meet you.\nNow you'll know me with /help."
     }
 
-    static func areYouHumanErrorMessage() -> String {
+    static func areYouHumanErrorMessage(_ context: DataContext) -> String {
         "Are you human? keke~"
     }
 }
