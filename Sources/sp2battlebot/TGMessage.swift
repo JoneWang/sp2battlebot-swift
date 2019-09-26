@@ -124,12 +124,22 @@ extension TGMessage {
 
     static func iksmSessionInvalidMessage(_ context: DataContext) -> String {
         let botUsername = TGMessageManager.shared.botUser.username!
-        return "The `iksm_session` invalid.\nTo reset, send /setiksm `[iksm_session]` to @\(botUsername)."
+        let message = "The `iksm_session` invalid.\n"
+        if context.chat.type == .private {
+            return message + "To reset, type /setiksm `[iksm_session]`."
+        } else {
+            return message + "To reset, send /setiksm `[iksm_session]` to @\(botUsername)."
+        }
     }
 
     static func iksmSessionNotSetMessage(_ context: DataContext) -> String {
         let botUsername = TGMessageManager.shared.botUser.username!
-        return "Your `iksm_session` not set.\nTo set, send /setiksm `[iksm_session]` to @\(botUsername)."
+        let message = "Your `iksm_session` not set.\n"
+        if context.chat.type == .private {
+            return message + "To set, type /setiksm `[iksm_session]`."
+        } else {
+            return message + "To set, send /setiksm `[iksm_session]` to @\(botUsername)."
+        }
     }
 
     static func setIKSMSessionCommandMustPrivateChatErrorMessage(_ context: DataContext) -> String {
