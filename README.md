@@ -6,7 +6,6 @@ A bot for telegram. Get your own battle info in telegram.
 
 ``` bash
 export SP2BATTLE_BOT_TOKEN="Your bot token"
-export SP2BATTLE_PRIVATE_SESSION="Your nintedio switch online cookie"
 ```
 
 ```bash
@@ -15,13 +14,21 @@ export SP2BATTLE_PRIVATE_SESSION="Your nintedio switch online cookie"
 
 ## Command
 
+/setiksm - Set iksm_session.
+
+/last - last50 - Show overview for last 50 battle.
+
 /last - Get last battle info.
 
-/last[0~49] - Get last battle with index.
+/last [0~49] - Get last battle with index.
 
 /start - Startup service of push.
 
 /stop - Stop service.
+
+## Require
+
+* swift 5.1
 
 ## Build
 
