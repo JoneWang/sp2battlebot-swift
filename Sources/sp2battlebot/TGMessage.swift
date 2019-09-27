@@ -106,7 +106,11 @@ extension TGMessage {
         let summary = battleOverview.summary
 
         var lines = [String]()
-        lines.append("Last 50 Battle:")
+        if let username = context.user.username {
+            lines.append("Last 50 Battle For @\(username)")
+        } else {
+            lines.append("Last 50 Battle For \(context.user.firstName)")
+        }
 
         lines.append("*▸* `V/D: `*\(summary.victoryCount)/\(summary.defeatCount)*`(\(summary.victoryRate * 100)%)`")
 
