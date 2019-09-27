@@ -20,7 +20,7 @@ struct SP2API {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "GET"
 
-        let sessionConfiguration = URLSessionConfiguration.default
+        let sessionConfiguration = URLSessionConfiguration.ephemeral
         sessionConfiguration.httpAdditionalHeaders = [
             "Cookie": "iksm_session=\(iksmSession); path=/; domain=.app.splatoon2.nintendo.net;",
             "Accept": "application/json"
