@@ -248,6 +248,9 @@ class BotController {
     }
 
     private func sendAuthErrorMessage(_ context: DataContext) {
+        let chatId = context.chat.id
+        let userId = context.user.id
+
         if context.user.iksmSession == nil {
             _ = TGMessageManager.shared.send(context: context,
                                              message: .iksmSessionNotSetMessage,
@@ -258,7 +261,11 @@ class BotController {
                                              parseMode: .markdown)
         }
 
-        stop(context: context)
+        if loops.firstIndex(where: {
+            $0.userId == userId && $0.chats.keys.contains(chatId)
+        }) != nil {
+            stop(context: context)
+        }
     }
 }
 
