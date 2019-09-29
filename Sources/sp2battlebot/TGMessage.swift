@@ -72,7 +72,8 @@ extension TGMessage {
             lines.append("呜呜呜~输了不好意思见人了~")
         }
 
-        lines.append(String(format: "`当前胜率%.0f%%  胜%d  负%d`",
+
+        lines.append(String(format: "`当前胜率%.0f%% 胜%d 负%d`",
                             Double(victoryGames) / Double(allGames) * 100,
                             victoryGames,
                             allGames - victoryGames))
@@ -106,11 +107,8 @@ extension TGMessage {
         let summary = battleOverview.summary
 
         var lines = [String]()
-        if let username = context.user.username {
-            lines.append("Last 50 Battle For @\(username)")
-        } else {
-            lines.append("Last 50 Battle For \(context.user.firstName)")
-        }
+
+        lines.append("Last 50 Battle For \(context.user.showName)")
 
         lines.append("*▸* `V/D: `*\(summary.victoryCount)/\(summary.defeatCount)*`(\(summary.victoryRate * 100)%)`")
 

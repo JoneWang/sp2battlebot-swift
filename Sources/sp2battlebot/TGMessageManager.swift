@@ -11,17 +11,19 @@ struct TGMessageManager {
     var bot: Bot!
     var botUser: TelegramUser!
 
-    func send(context: DataContext, message: TGMessage, parseMode: ParseMode? = nil) -> Future<Message> {
+    func send(context: DataContext, message: TGMessage, chatId: Int64? = nil, parseMode: ParseMode? = nil) -> Future<Message> {
         let message = TGMessage.selector(context: context, message: message)
         print(message)
-        let params = Bot.SendMessageParams(chatId: .chat(context.chat.id),
+        let cId = chatId == nil ? context.chat.id : chatId!
+        let params = Bot.SendMessageParams(chatId: .chat(cId),
                                            text: message,
                                            parseMode: parseMode)
         return try! bot.sendMessage(params: params)
     }
 
-    func delete(context: DataContext, messageId: Int) -> Future<Bool> {
-        let params = Bot.DeleteMessageParams(chatId: .chat(context.chat.id),
+    func delete(context: DataContext, messageId: Int, chatId: Int64? = nil) -> Future<Bool> {
+        let cId = chatId == nil ? context.chat.id : chatId!
+        let params = Bot.DeleteMessageParams(chatId: .chat(cId),
                                              messageId: messageId)
         return try! bot.deleteMessage(params: params)
     }

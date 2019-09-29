@@ -25,11 +25,11 @@ do {
 
 let controller = BotController()
 
-let startHandler = CommandHandler(commands: ["/start", "/start@\(botUser.username!)"],
-                                  callback: controller.start)
+let startHandler = CommandHandler(commands: ["/startpush", "/startpush@\(botUser.username!)"],
+                                  callback: controller.startPush)
 
-let stopHandler = CommandHandler(commands: ["/stop", "/stop@\(botUser.username!)"],
-                                 callback: controller.stop)
+let stopHandler = CommandHandler(commands: ["/stoppush", "/stoppush@\(botUser.username!)"],
+                                 callback: controller.stopPush)
 
 let lastWithIndexHandler = RegexpHandler(pattern: "^/last ",
                                          callback: controller.lastWithIndex)
@@ -38,7 +38,7 @@ let lastHandler = CommandHandler(commands: ["/last", "/last@\(botUser.username!)
                                  callback: controller.last)
 
 let last50Handler = CommandHandler(commands: ["/last50", "/last50@\(botUser.username!)"],
-                                 callback: controller.last50)
+                                   callback: controller.last50)
 
 let setIKSMSessionHandler = RegexpHandler(pattern: "^/setiksm",
                                           callback: controller.setIKSMSession)

@@ -15,6 +15,16 @@ struct User {
     var lastName: String?
     var iksmSession: String?
 
+    var showName: String {
+        get {
+            if let un = username {
+                return "@\(un)"
+            } else {
+                return firstName
+            }
+        }
+    }
+
     init(telegramUser: TelegramUser) {
         self.id = telegramUser.id
         self.isBot = telegramUser.isBot
@@ -41,6 +51,7 @@ struct User {
 struct DataContext {
     var user: User
     var chat: Chat
+    var loop: Bool = false
 
     init(user: User, chat: Chat) {
         self.user = user
@@ -69,4 +80,13 @@ struct DataContext {
             return nil
         }
     }
+}
+
+struct LoopInfo {
+    // Started all chat
+    var chats: [Int64: Int?]
+    var userId: Int64
+    var lastBattleId: String?
+    var gameCount = 0
+    var gameVictoryCount = 0
 }

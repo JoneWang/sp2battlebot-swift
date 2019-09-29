@@ -17,32 +17,10 @@ enum BotControllerError: Error {
 class BotController {
     static var shared: BotController!
 
-    // 已经启动自动战斗结果发送的对话
-    // 其中保存了 message id 用于发送新战斗结果时删除上一次的结果消息
-    var startedInChat = [Int64: Int?]()
-
     // battle 数据轮询队列
     let jobQueue: BasicJobQueue<DataContext>!
-    var loop = false
-    // 用于 /start 时，获取一次 lastBattleNumber 而不输出
-    var firstGet = true
-    // 用于比较 battleNumber，如果和上次不同则认为产生了新的 battle 数据并且发送到 tg
-    var lastBattleId = ""
-
-    var gameCount = 0
-    var gameVictoryCount = 0
-
-    func started(in chatId: Int64) -> Bool {
-        startedInChat[chatId] != nil
-    }
-
-    func startedMessageId(in chatId: Int64) -> Int? {
-        guard let messageId = startedInChat[chatId] else {
-            return nil
-        }
-
-        return messageId
-    }
+    // 轮询 loop 信息
+    var loops = [LoopInfo]()
 
     init() {
         jobQueue = BasicJobQueue(bot: TGMessageManager.shared.bot)
@@ -50,44 +28,48 @@ class BotController {
         BotController.shared = self
     }
 
-    private func startJobs() {
-        // let interval = TimeAmount.seconds(5)
-        // let battlePushLoop = RepeatableJob(when: Date(),
-        //                                    interval: interval,
-        //                                    context: message.chat) { chat in
-        //     if let chat = chat {
-        //         self.requestLastBattle(chat, requestLoop: true)
-        //     }
-        // }
-    }
-
-    func start(_ update: Update, _ context: BotContext!) throws {
+    func startPush(_ update: Update, _ context: BotContext!) throws {
         guard let dataContext = DataContext.from(update: update) else { return }
 
         let chatId = dataContext.chat.id
-        if loop {
+        let userId = dataContext.user.id
+
+        if loops.contains(where: {
+            $0.userId == userId && $0.chats.keys.contains(chatId)
+        }) {
             _ = TGMessageManager.shared.send(context: dataContext,
                                              message: .alreadyStartedMessage)
             return
         }
-        startedInChat[chatId] = nil
+
+        var loopIndex: Int!
+        loopIndex = loops.firstIndex { $0.userId == userId }
+        if loopIndex == nil {
+            let loopInfo = LoopInfo(chats: [Int64: Int?](), userId: userId)
+            loops.append(loopInfo)
+            loopIndex = loops.count - 1
+        }
+
+        var loopInfo = loops[loopIndex]
+        loopInfo.chats.updateValue(nil, forKey: chatId)
+        loops[loopIndex] = loopInfo
 
         _ = TGMessageManager.shared.send(context: dataContext,
                                          message: .startedMessage)
-
-        loop = true
 
         let interval = TimeAmount.seconds(5)
         let battlePushLoop = RepeatableJob(when: Date(),
                                            interval: interval,
                                            context: dataContext) { c in
-            self.requestLastBattle(c!, requestLoop: true)
+            var context = c!
+            context.loop = true
+            self.requestLastBattle(context)
         }
 
         _ = jobQueue.scheduleRepeated(battlePushLoop)
     }
 
-    func stop(_ update: Update, _ context: BotContext!) throws {
+    func stopPush(_ update: Update, _ context: BotContext!) throws {
         guard let dataContext = DataContext.from(update: update) else { return }
         stop(context: dataContext)
     }
@@ -135,8 +117,7 @@ class BotController {
                 _ = TGMessageManager.shared.send(context: dataContext,
                                                  message: .last50OverviewMessage(battleOverview: battleOverview),
                                                  parseMode: .markdown)
-            }
-            else if code == 403 {
+            } else if code == 403 {
                 self.sendAuthErrorMessage(dataContext)
             }
         }
@@ -187,57 +168,81 @@ class BotController {
 
     private func stop(context: DataContext) {
         let chatId = context.chat.id
+        let userId = context.user.id
 
-        if !loop {
+        guard let loopIndex = loops.firstIndex(where: {
+            $0.userId == userId && $0.chats.keys.contains(chatId)
+        }), let currentLoop = jobQueue.jobs.first(where: {
+            $0.context?.user.id == userId
+        }) else {
             _ = TGMessageManager.shared.send(context: context,
                                              message: .alreadyStoppedMessage)
             return
         }
-        startedInChat.removeValue(forKey: chatId)
-        loop = false
-        firstGet = true
 
-        if let notFinishedJob = jobQueue.jobs.first {
-            notFinishedJob.scheduleRemoval()
+        var loopInfo = loops[loopIndex]
+        loopInfo.chats.removeValue(forKey: chatId)
+        loops[loopIndex] = loopInfo
+
+        if loopInfo.chats.count == 0 {
+            currentLoop.scheduleRemoval()
+            jobQueue.jobs.remove(currentLoop)
         }
 
         _ = TGMessageManager.shared.send(context: context, message: .stoppedMessage)
     }
 
-    private func sendBattleToChat(_ context: DataContext,
-                                  battle: SP2Battle,
-                                  requestLoop: Bool) throws {
-        var battleMessage: TGMessage
-        if requestLoop {
-            battleMessage = .pushBattleMessage(victoryGames: gameVictoryCount,
-                                               allGames: gameCount,
-                                               battle: battle)
-        } else {
-            battleMessage = .lastBattleMessage(battle: battle)
+    private func sendBattleToUserChat(_ context: DataContext, battle: SP2Battle) throws {
+        _ = TGMessageManager.shared.send(context: context,
+                                         message: .lastBattleMessage(battle: battle),
+                                         chatId: context.chat.id,
+                                         parseMode: .markdown)
+    }
+
+    private func sendBattleToUserChats(_ context: DataContext, battle: SP2Battle) throws {
+        let userId = context.user.id
+
+        guard let loopInfo = loops.first(where: { $0.userId == userId }) else {
+            return
         }
 
-        try sendBattleMessage(context: context,
-                              battleMessage: battleMessage,
-                              requestLoop: requestLoop)
+        for chatId in loopInfo.chats.keys {
+            // Send
+            _ = TGMessageManager.shared.send(context: context,
+                                             message: .pushBattleMessage(victoryGames: loopInfo.gameVictoryCount,
+                                                                         allGames: loopInfo.gameCount,
+                                                                         battle: battle),
+                                             chatId: chatId,
+                                             parseMode: .markdown)
+                    .do { message in
+                        let chatId = message.chat.id
+                        if let loopIndex = self.loops.firstIndex(where: { $0.userId == userId }), context.loop {
+                            var loopInfo = self.loops[loopIndex]
+                            loopInfo.chats.updateValue(message.messageId, forKey: chatId)
+                            self.loops[loopIndex] = loopInfo
+                        }
+                    }
 
-        if let messageId = self.startedMessageId(in: context.chat.id), requestLoop {
-            startedInChat[context.chat.id] = nil
-            _ = TGMessageManager.shared
-                    .delete(context: context, messageId: messageId)
-            return
+            // Delete last push message
+            if let lastPushMsgId = loopInfo.chats[chatId] as? Int, context.loop {
+                _ = TGMessageManager.shared
+                        .delete(context: context, messageId: lastPushMsgId, chatId: chatId)
+            }
         }
     }
 
-    private func sendBattleMessage(context: DataContext,
-                                   battleMessage: TGMessage,
-                                   requestLoop: Bool) throws {
+    private func sendBattleMessage(context: DataContext, battleMessage: TGMessage, chatId: Int64? = nil) throws {
         _ = TGMessageManager.shared.send(context: context,
                                          message: battleMessage,
+                                         chatId: chatId,
                                          parseMode: .markdown)
                 .do { message in
+                    let userId = message.chat.id
                     let chatId = message.chat.id
-                    if requestLoop {
-                        self.startedInChat[chatId] = message.messageId
+                    if let loopIndex = self.loops.firstIndex(where: { $0.userId == userId }), context.loop {
+                        var loopInfo = self.loops[loopIndex]
+                        loopInfo.chats.updateValue(message.messageId, forKey: chatId)
+                        self.loops[loopIndex] = loopInfo
                     }
                 }
     }
@@ -253,32 +258,36 @@ class BotController {
                                              parseMode: .markdown)
         }
 
-        if loop { stop(context: context) }
+        stop(context: context)
     }
-
 }
 
 extension BotController {
     private func requestLastBattle(_ context: DataContext,
                                    battleIndex: Int = 0,
-                                   requestLoop: Bool = false,
                                    block: ((DataContext) -> Void)? = nil) {
         SP2API.battleList(context: context) { battleOverview, code in
             if code == 200, let battleOverview = battleOverview {
                 let lastBattle = battleOverview.battles[battleIndex]
+                print(lastBattle.battleId)
 
-                if !requestLoop ||
-                           (!self.firstGet &&
-                                   self.lastBattleId != "" &&
-                                   lastBattle.battleId != self.lastBattleId) {
-                    self.requestBattleDetail(context,
-                                             battleId: lastBattle.battleId,
-                                             requestLoop: requestLoop)
+                if context.loop {
+                    guard let loopIndex = self.loops.firstIndex(where: {
+                        $0.userId == context.user.id
+                    }) else { return }
+                    var loopInfo = self.loops[loopIndex]
+
+                    if loopInfo.lastBattleId != nil &&
+                               lastBattle.battleId != loopInfo.lastBattleId {
+                        self.requestBattleDetail(context,
+                                                 battleId: lastBattle.battleId)
+                    }
+
+                    loopInfo.lastBattleId = lastBattle.battleId
+                    self.loops[loopIndex] = loopInfo
                 } else {
-                    self.firstGet = false
+                    self.requestBattleDetail(context, battleId: lastBattle.battleId)
                 }
-
-                self.lastBattleId = lastBattle.battleId
 
                 if let block = block {
                     block(context)
@@ -291,25 +300,35 @@ extension BotController {
 
     private func requestBattleDetail(_ context: DataContext,
                                      battleId: String,
-                                     requestLoop: Bool,
                                      iksmSession: String? = nil) {
-        SP2API.battle(context: context,
-                      id: battleId) { battle, code in
+        SP2API.battle(context: context, id: battleId) { battle, code in
             if code == 200, let battle = battle {
-                if requestLoop {
-                    self.gameCount += 1
+                if context.loop {
+                    guard let loopIndex = self.loops.firstIndex(where: {
+                        $0.userId == context.user.id
+                    }) else { return }
+                    var loopInfo = self.loops[loopIndex]
+
+                    loopInfo.gameCount += 1
                     if battle.victory {
-                        self.gameVictoryCount += 1
+                        loopInfo.gameVictoryCount += 1
+                    }
+
+                    self.loops[loopIndex] = loopInfo
+
+                    do {
+                        try self.sendBattleToUserChats(context, battle: battle)
+                    } catch {
+                        print(error)
+                    }
+                } else {
+                    do {
+                        try self.sendBattleToUserChat(context, battle: battle)
+                    } catch {
+                        print(error)
                     }
                 }
 
-                do {
-                    try self.sendBattleToChat(context,
-                                              battle: battle,
-                                              requestLoop: requestLoop)
-                } catch {
-                    print(error)
-                }
             } else if code == 403 {
                 self.sendAuthErrorMessage(context)
             }

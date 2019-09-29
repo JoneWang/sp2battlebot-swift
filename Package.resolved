@@ -20,6 +20,15 @@
         }
       },
       {
+        "package": "CSQLite",
+        "repositoryURL": "https://github.com/stephencelis/CSQLite.git",
+        "state": {
+          "branch": null,
+          "revision": "9106e983d5e3d5149ee35281ec089484b0def018",
+          "version": "0.0.3"
+        }
+      },
+      {
         "package": "HTTP",
         "repositoryURL": "https://github.com/vapor/http.git",
         "state": {
